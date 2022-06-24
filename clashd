@@ -1,0 +1,80 @@
+#!/usr/bin/python3
+
+import asyncio
+import json
+
+from aiohttp import web, WSMsgType
+
+
+class ClashServer():
+
+    def __init__(self):
+        self.slave_ws = None
+        self.app = web.Application()
+        self.app["websockets"] = set()
+        self.app.router.add_get("/clash", self.master_handler)
+        self.app.router.add_get("/clash/slave", self.slave_handler)
+        self.app.on_shutdown.append(self.on_shutdown)
+
+    def run(self):
+        web.run_app(self.app)
+
+    async def master_handler(self, request):
+        print("master: connected")
+        self.master_ws = web.WebSocketResponse()
+        await self.master_ws.prepare(request)
+
+        while True:
+            try:
+                msg = await self.master_ws.receive()
+                if msg.type == WSMsgType.CLOSE or msg.type == WSMsgType.CLOSED:
+                    break
+                elif msg.type == WSMsgType.ERROR:
+                    break
+                elif msg.type == WSMsgType.TEXT:
+                    data = json.loads(msg.data)
+                    if self.slave_ws is not None:
+                        print("master -> slave")
+                        await self.slave_ws.send_str(msg.data)
+            except asyncio.CancelledError:
+                pass
+
+        return self.master_ws
+
+    async def slave_handler(self, request):
+        print("slave: connected")
+        self.slave_ws = web.WebSocketResponse()
+        await self.slave_ws.prepare(request)
+
+        await self.master_ws.send_str(json.dumps("init"))
+
+        while True:
+            try:
+                msg = await self.slave_ws.receive()
+                if msg.type == WSMsgType.CLOSE or msg.type == WSMsgType.CLOSED:
+                    break
+                elif msg.type == WSMsgType.ERROR:
+                    break
+                elif msg.type == WSMsgType.TEXT:
+                    data = json.loads(msg.data)
+                    if data.get("input"):
+                        print("slave -> master")
+                        await self.master_ws.send_str(msg.data)
+
+            except asyncio.CancelledError:
+                pass
+
+        return self.slave_ws
+
+    async def on_shutdown(self):
+        for task in self.app["websockets"]:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+
+if __name__ == "__main__":
+    clashd = ClashServer()
+    clashd.run()

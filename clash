@@ -1,0 +1,813 @@
+#!/usr/bin/python3
+
+import curses
+import curses.panel
+import sys
+import fcntl
+import os
+import pty
+import shlex
+import re
+import termios
+import struct
+import json
+import psutil
+import base64
+import asyncio
+import aiohttp
+import signal
+import functools
+import traceback
+
+global logfile
+logfile = None
+
+
+def log(msg):
+    global logfile
+    if logfile:
+        logfile.write(f"{msg}\n")
+        logfile.flush()
+
+
+def term_any_key():
+    global old_settings
+    if old_settings:
+        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+    curses.endwin()
+
+
+clash = None
+
+
+class ClaSH:
+
+    @staticmethod
+    def curses_wrapper(bkg):
+        global clash
+        clash = ClaSH(bkg)
+
+    def get_color(self, b, f):
+        return curses.color_pair(b * 16 + f + 1)
+
+    def __init__(self, bkg):
+        self.bkg = bkg
+        self.remainder = ""
+        self.flags = 0
+        self.color_idx = 0
+        self.up = True
+        self.col = 0
+        self.row = 0
+        self.ws = None
+
+    async def handle_server_msg(self, msg):
+        log(f"srv: msg {msg}")
+        data = json.loads(msg)
+        log("don")
+        if "init" in data:
+            msg = {"screen": {
+                      "rows": self.height,
+                      "cols": self.width,
+                      "col": self.col,
+                      "row": self.row,
+                      "color": self.color_idx,
+                      "dump": []}}
+            for row in range(0, self.height):
+                for col in range(0, self.width):
+                    c = self.screen.inch(row, col)
+                    msg["screen"]["dump"].append(c)
+            await self.ws.send_str(json.dumps(msg))
+        elif "input" in data:
+            data = base64.b64decode(data.get("input"))
+            self.p_out.write(data)
+
+    async def handle_slave_msg(self, msg):
+        log("slave msg")
+        data = json.loads(msg)
+        if "screen" in data:
+            log("got screen info")
+            scrinit = data.get("screen")
+            log(f"slv: screen info {scrinit['cols']}x{scrinit['rows']}")
+            for r in range(0, scrinit['rows']):
+                for c in range(0, scrinit['cols']):
+                    ch = scrinit['dump'][r * scrinit['cols'] + c]
+                    try:
+                        self.screen.addch(r, c, ch)
+                    except Exception:
+                        pass
+            self.color_idx = scrinit['color']
+            self.col = scrinit['col']
+            self.row = scrinit['row']
+
+            self.screen.move(self.row, self.col)
+            self.screen.refresh()
+        elif "output" in data:
+            data = base64.b64decode(data.get("output"))
+            self.input(data)
+
+    async def connect(self):
+        session = aiohttp.ClientSession()
+        log("connecting")
+        while self.up:
+            try:
+                async with session.ws_connect('http://localhost:8080/clash') as self.ws:
+                    log("connected")
+
+                    while self.up:
+                        msg = await self.ws.receive()
+                        if msg.type == aiohttp.WSMsgType.TEXT:
+                            await self.handle_server_msg(msg.data)
+                        elif msg.type == aiohttp.WSMsgType.CLOSED:
+                            break
+                        elif msg.type == aiohttp.WSMsgType.ERROR:
+                            break
+            except aiohttp.client_exceptions.ClientConnectorError:
+                await asyncio.sleep(1)
+                continue
+            except Exception as exc:
+                raise(exc)
+                await asyncio.sleep(1)
+                log("reconnecting")
+
+    async def run_slave(self):
+        def sig_handler(signum, frame):
+            pass
+
+        loop = asyncio.get_event_loop()
+        for signame in {'SIGINT', 'SIGTERM'}:
+            loop.add_signal_handler(getattr(signal, signame), functools.partial(sig_handler, signame, loop))
+
+        self.init_curses()
+        await self.init_stdin(self.handle_slave_stdin)
+
+        await self.init_slave_connection()
+
+        while self.up:
+            await asyncio.sleep(1)
+
+        log("terminating")
+        term_any_key()
+
+    async def run_master(self):
+        def sig_handler(signum, frame):
+            current_process = psutil.Process()
+            children = current_process.children(recursive=True)
+            # FIXME: only kill forground process?
+            for child in children:
+                if child.pid == self.shell_pid:
+                    continue
+                os.kill(int(child.pid), signal.SIGINT)
+                break
+
+        loop = asyncio.get_event_loop()
+        for signame in {'SIGINT', 'SIGTERM'}:
+            loop.add_signal_handler(getattr(signal, signame), functools.partial(sig_handler, signame, loop))
+
+        self.init_curses()
+        await self.init_pty()
+        await self.init_stdin(self.handle_master_stdin)
+
+        await self.init_master_connection()
+
+        while self.up:
+            await asyncio.sleep(1)
+        log("terminating")
+        term_any_key()
+
+    def init_curses(self):
+        self.screen = curses.initscr()
+
+        curses.noecho()
+        curses.cbreak()
+        # curses.curs_set(0)
+        curses.nl()
+        self.screen.keypad(1)
+        self.screen.scrollok(False)
+        # self.screen.bkgd(" ", self.colors["bkg"])
+        self.screen.refresh()
+        self.height, self.width = self.bkg.getmaxyx()
+
+        curses.start_color()
+        curses.use_default_colors()
+
+        if (not curses.can_change_color() or curses.COLORS < 256):
+            curses.endwin()
+            print("Error: ncurses cannot change color! Please export TERM=xterm-256color")
+            return
+
+        idx = 1
+        #for i in range(0, 8):
+        #    curses.init_pair(idx, i, -1)
+        #    idx += 1
+
+        for j in range(40, 48):
+            for i in range(30, 38):
+                curses.init_pair(idx, i - 30, j - 40)
+                idx += 1
+        self.color = curses.color_pair(0)
+
+    async def init_pty(self):
+        self.shell_pid, self.p_out = open_terminal()
+
+        async def handler(newloop):
+            reader = asyncio.StreamReader()
+            protocol = asyncio.StreamReaderProtocol(reader)
+            await newloop.connect_read_pipe(lambda: protocol, self.p_out)
+            while self.up:
+                data = await reader.read(1024)
+                if not data:
+                    break
+
+                try:
+                    self.input(data)
+                except Exception:
+                    log(traceback.format_exc())
+
+                if self.ws:  # FIXME wait until initialized, mutex?
+                    await self.ws.send_str(json.dumps({"output": base64.b64encode(data).decode()}))
+
+        def thread_wrapper():
+                newloop = asyncio.new_event_loop()
+                asyncio.set_event_loop(newloop)
+                newloop.run_until_complete(handler(newloop))
+
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(None, thread_wrapper)
+        # asyncio.create_task(handler())
+
+        # def on_pty_output():
+        #     try:
+        #         data = self.p_out.read(1024)
+        #     except Exception:
+        #         self.up = False
+        #         loop.remove_reader(self.p_out)
+        #         return
+        #     self.input(data.decode())
+
+        # loop.add_reader(self.p_out, on_pty_output)
+
+    async def handle_master_stdin(self, data):
+        self.p_out.write(data)
+
+    async def handle_slave_stdin(self, data):
+        await self.ws.send_str(json.dumps({"input": base64.b64encode(data).decode()}))
+
+    async def init_stdin(self, stdin_handler):
+        global old_settings
+        old_settings = termios.tcgetattr(sys.stdin)
+        new_settings = termios.tcgetattr(sys.stdin)
+        new_settings[3] = new_settings[3] & ~(termios.ECHO | termios.ICANON)  # lflags
+        new_settings[6][termios.VMIN] = 0   # cc
+        new_settings[6][termios.VTIME] = 0  # cc
+        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, new_settings)
+
+        # set sys.stdin non-blocking
+        orig_fl = fcntl.fcntl(sys.stdin, fcntl.F_GETFL)
+        fcntl.fcntl(sys.stdin, fcntl.F_SETFL, orig_fl | os.O_NONBLOCK)
+
+        async def handler(newloop):
+            reader = asyncio.StreamReader()
+            protocol = asyncio.StreamReaderProtocol(reader)
+            await newloop.connect_read_pipe(lambda: protocol, sys.stdin)
+
+            while self.up:
+                data = await reader.read(1024)
+                if not data:
+                    break
+                await stdin_handler(data)
+
+        def thread_wrapper():
+            try:
+                newloop = asyncio.new_event_loop()
+                asyncio.set_event_loop(newloop)
+                newloop.run_until_complete(handler(newloop))
+            except Exception as exc:
+                log(str(exc))
+
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(None, thread_wrapper)
+
+    async def init_master_connection(self):
+        asyncio.create_task(self.connect())
+
+    async def init_slave_connection(self):
+        session = aiohttp.ClientSession()
+        log("slave: connecting")
+        while self.up:
+            try:
+                async with session.ws_connect('http://localhost:8080/clash/slave') as self.ws:
+                    log("slave: connected")
+
+                    while self.up:
+                        msg = await self.ws.receive()
+                        if msg.type == aiohttp.WSMsgType.TEXT:
+                            try:
+                                await self.handle_slave_msg(msg.data)
+                            except Exception:
+                                log(traceback.format_exc())
+                        elif msg.type == aiohttp.WSMsgType.CLOSED:
+                            break
+                        elif msg.type == aiohttp.WSMsgType.ERROR:
+                            break
+            except Exception:
+                await asyncio.sleep(1)
+            log("slave :reconnecting")
+
+    def linefeed(self):
+        if self.row < self.height - 1:
+            self.row += 1
+            log(f"row: {self.row}")
+            self.screen.move(self.row, self.col)
+        else:
+            log("scrolling")
+            self.screen.scrollok(True)
+            self.screen.scroll()
+            self.screen.scrollok(False)
+
+    def puttext(self, text):
+        length = len(text)
+        if self.col + length > self.width:
+            log(f"err: truncating {length} to {self.width - self.col - 1} rest: {bytes(text[self.width - self.col - 1:].encode())}")
+            length = self.width - self.col - 1
+        try:
+            self.bkg.addstr(self.row, self.col, text[:length], self.color)
+        except Exception:
+            log(f"err: {self.row} {self.col} {bytes(text.encode())}")
+        self.col += length
+
+    def puts(self, msg):
+        if not msg:
+            return
+
+        text = ""
+        for c in msg:
+            code = ord(c)
+            if code < 32:
+                if text:  # output text before special character
+                    self.puttext(text)
+                    text = ""
+
+                # handle special character
+                if code == 7:  # Bell
+                    log("beep")
+                elif code == 8:  # BS
+                    log("BS")
+                    if self.col > 0:
+                        self.col -= 1
+                        self.screen.move(self.row, self.col)
+                        log(f"pos: {self.row} {self.col}")
+                elif code == 9:  # Tab
+                    log("Tab")
+                    if self.col < self.width - 8:
+                        try:
+                            self.bkg.addstr(self.row, self.col, "        ", self.color)
+                        except Exception:
+                            log(f"err: {self.row} {self.col} '        ")
+                        self.col += 8
+                        self.screen.move(self.row, self.col)
+                        log(f"pos: {self.row} {self.col}")
+                elif code == 10:  # LF
+                    log("LF")
+                    self.linefeed()
+                    self.screen.move(self.row, self.col)
+                    log(f"pos: {self.row} {self.col}")
+                elif code == 13:  # CR
+                    log("CR")
+                    self.col = 0
+                    self.screen.move(self.row, self.col)
+                    log(f"pos: {self.row} {self.col}")
+                elif code == 15:  # reset font ??
+                    self.flags = 0
+                    self.color_idx = 0
+
+                else:
+                    log(f"unknown ascii {ord(c)}")
+            else:
+                text += c
+
+        if text:
+            self.puttext(text)
+
+    def set_color(self, params):
+        # [0;10;1m = bold
+
+        # 0     	Reset or normal
+        # 1     	Bold or increased intensity
+        # 2     	Faint, decreased intensity, or dim
+        # 3     	Italic
+        # 4     	Underline
+        # 5     	Slow blink
+        # 6     	Rapid blink
+        # 7     	Reverse video or invert
+        # 8     	Conceal or hide
+        # 9     	Crossed-out, or strike
+        # 10     	Primary (default) font
+        # 11–19 	Alternative font
+        # 20     	Fraktur (Gothic)
+        # 21     	Doubly underlined; or: not bold
+        # 22     	Normal intensity
+        # 23     	Neither italic, nor blackletter
+        # 24     	Not underlined
+        # 25     	Not blinking
+        # 26     	Proportional spacing
+        # 27     	Not reversed
+        # 28     	Reveal
+        # 29     	Not crossed out
+        # 30–37 	Set foreground color
+        # 38    	Set foreground color
+        # 39    	Default foreground color
+        # 40–47 	Set background color
+        # 48 	    Set background color
+        # 49     	Default background color
+        # 50    	Disable proportional spacing
+        # 51    	Framed
+        # 52    	Encircled
+        # 53    	Overlined
+        # 54    	Neither framed nor encircled
+        # 55    	Not overlined
+        # 58    	Set underline color
+        # 59    	Default underline color
+        # 60    	Ideogram underline or right side line
+        # 61    	Ideogram double underline, or double line on the right side
+        # 62    	Ideogram overline or left side line
+        # 63    	Ideogram double overline, or double line on the left side
+        # 64    	Ideogram stress marking
+        # 65    	No ideogram attributes
+        # 73    	Superscript
+        # 74    	Subscript
+        # 75    	Neither superscript nor subscript
+        # 90–97 	Set bright foreground color
+        # 100–107 	Set bright background color
+
+        log(f"clr {params}")
+
+        color_fg = None
+        color_bg = None
+        for param in params:
+            if param is None:
+                continue
+
+            if param == 0:
+                self.flags = 0
+                self.color_idx = 0
+            elif param == 1:
+                self.flags |= curses.A_BOLD
+            elif param == 2:
+                self.flags |= curses.A_DIM
+            elif param == 3:  # italic
+                #self.flags |= curses.
+                pass
+            elif param == 4:
+                self.flags |= curses.A_UNDERLINE
+            elif param == 5:
+                self.flags |= curses.A_BLINK
+            elif param == 6:
+                self.flags |= curses.A_BLINK
+            elif param == 7:  # invert colors fg, bg
+                self.flags |= curses.A_REVERSE
+
+            elif param >= 30 and param <= 37:
+                color_fg = param - 30 + 1
+            elif param >= 40 and param <= 47:
+                color_bg = param - 40 + 1
+
+            elif param >= 90 and param <= 97:
+                color_fg = param - 90 + 1
+                self.flags |= curses.A_STANDOUT
+            elif param >= 100 and param <= 107:
+                color_bg = param - 100 + 1
+                self.flags |= curses.A_STANDOUT
+
+            elif param == 39:
+                self.color_idx = 0
+
+        if color_fg:
+            if color_bg:
+                self.color_idx = color_fg + color_bg * 8
+            else:
+                self.color_idx = color_fg
+        else:
+            if color_bg:
+                self.color_idx = color_bg * 8
+
+        self.color = curses.color_pair(self.color_idx) | self.flags
+
+    def ansi_unhandled(self, g):
+        log(f"todo: {g[0]}")
+
+    def ansi_reset_color(self, g):
+        self.color_idx = 0
+        self.flags = 0
+        self.color = curses.color_pair(self.color_idx)
+
+    def ansi_color(self, g):
+        self.set_color([int(x) for x in g])
+
+    def ansi_move_up(self, g):
+        # g = m.groups()
+        # FIXME: get rows optionally grom g[0]?
+        rows = 1
+        log(f"mov: up {rows} from {self.row}")
+        self.row -= int(rows) - 1
+        if self.row < 0:
+            self.row = 0
+        self.screen.move(self.row, self.col)
+        log(f"pos: {self.row} {self.col}")
+
+    def ansi_move_right(self, g):
+        cols = g[0]
+        log(f"mov: right {cols} from {self.col}")
+        self.col += int(cols) - 1
+        self.screen.move(self.row, self.col)
+        log(f"pos: {self.row} {self.col}")
+
+    def ansi_move_left(self, g):
+        cols = g[0]
+        log(f"mov: left {cols} from {self.col}")
+        self.col -= int(cols) - 1
+        if self.col < 0:
+            self.col = 0
+        self.screen.move(self.row, self.col)
+        log(f"pos: {self.row} {self.col}")
+
+    def ansi_position_col(self, g):
+        col = g[0]
+        self.col = int(col) - 1
+        self.screen.move(self.row, self.col)
+        log(f"pos: {self.row} {self.col}")
+
+    def ansi_insert_lines(self, g):
+        count = g[0]
+        blank = " " * self.width
+        self.col = 0
+        for i in count:
+            self.row += 1
+            try:
+                self.bkg.addstr(self.row, 0, blank, self.color)
+            except Exception:
+                log(f"err: {self.row} 0 ' ' * {self.width}")
+
+        self.screen.move(self.row, self.col)
+        log(f"pos: {self.row} {self.col}")
+
+    def ansi_position(self, g):
+        if len(g) > 1:
+            row, col = g[0:2]
+            self.row = int(row) - 1
+            self.col = int(col) - 1
+        elif len(g) == 1:
+            col = g[0]
+            self.col = int(col) - 1
+        try:
+            self.screen.move(self.row, self.col)
+            log(f"pos: {self.row} {self.col}")
+        except Exception:
+            log(f"err: move {self.row} {self.col}")
+
+    def ansi_pos_home(self, g):
+        self.row = 0
+        self.col = 0
+        self.screen.move(self.row, self.col)
+        log(f"pos: home (0, 0)")
+
+    def ansi_erase_line(self, g):
+        log(f"erase line {g}")
+
+        param = g[0]
+        variant = g[1]
+
+        log(f"variant: {variant}, param: {param}")
+        if variant == "X":  # erase right with optional length
+            if param is not None:
+                length = int(param)
+            else:
+                length = self.width - self.col
+            start = self.col
+
+        elif variant == "K":  # erase with different behavior
+            if param == "" or int(param) == 0:  # erase from cursor to end of line
+                length = self.width - self.col
+                start = self.col
+            elif int(param) == 1:                 # erase start of line to the cursor
+                length = self.col
+                start = 0
+            elif int(param) == 2:                 # erase the entire line
+                length = self.width
+                start = 0
+
+        blank = " " * length
+        try:
+            self.bkg.addstr(self.row, start, blank, self.color)
+        except Exception:
+            log(f"err: {self.row} {start} ' ' * {length}")
+
+    def ansi_erase(self, g):
+        if len(g) > 0:
+            if g[0] == 2:  # 2J: erase entire screen
+                log("erase screen")
+                self.row = 0
+                self.col = 0
+                self.screen.move(self.row, self.col)
+                blank = " " * self.width
+                for r in range(self.row, self.height - 1):
+                    try:
+                        self.bkg.addstr(r, 0, blank, self.color)
+                    except Exception:
+                        log(f"err: {r} 0 ' ' * {self.width}")
+
+            # TODO: handle 3J
+
+        else:  # erase rest of line and screen
+            log("erase rest of screen")
+            blank = " " * (self.width - self.col)
+            try:
+                self.bkg.addstr(self.row, self.col, blank, self.color)
+            except Exception:
+                log(f"err: {self.row} {self.col} ' ' * {self.width - self.col}")
+
+            blank = " " * self.width
+            for r in range(self.row, self.height - 1):
+                try:
+                    self.bkg.addstr(r, 0, blank, self.color)
+                except Exception:
+                    log(f"err: {r} 0 ' ' * {self.width}")
+
+    def ansi_hide_cursor(self, g):
+        curses.curs_set(0)
+
+    def ansi_show_cursor(self, g):
+        curses.curs_set(1)
+
+    def ansi_clear_screen(self, g):
+        self.screen.clear()
+
+    def ansi_dec(self, g):
+        opt = g[0]
+        val = False
+        if g[1] == 'h':  # set
+            val = True
+        elif g[1] == 'l':  # reset
+            val = False
+
+        if opt == 7:
+            log("dec: autowrap {val}")
+
+        if opt == 1000:
+            log("dec: X11 mouse {val}")
+
+        else:
+            log(f"dec: {opt} {val}")
+
+    def addansi(self, bkg, row, col, line):
+        # https://espterm.github.io/docs/VT100%20escape%20codes.html
+        # https://man7.org/linux/man-pages/man4/console_codes.4.html
+# ESC[J	erase in display (same as ESC[0J)
+# ESC[0J	erase from cursor until end of screen
+# ESC[1J	erase from cursor to beginning of screen
+# ESC[2J	erase entire screen
+# ESC[3J	erase saved lines
+# ESC[K	erase in line (same as ESC[0K)
+# ESC[0K	erase from cursor to end of line
+# ESC[1K	erase start of line to the cursor
+# ESC[2K	erase the entire line
+# ESC[1;34;{...}m		Set graphics modes for cell, separated by semicolon (;).
+# ESC[0m		reset all modes (styles and colors)
+# ESC[1m	ESC[22m	set bold mode.
+# ESC[2m	ESC[22m	set dim/faint mode.
+# ESC[3m	ESC[23m	set italic mode.
+# ESC[4m	ESC[24m	set underline mode.
+# ESC[5m	ESC[25m	set blinking mode
+# ESC[7m	ESC[27m	set inverse/reverse mode
+# ESC[8m	ESC[28m	set hidden/invisible mode
+# ESC[9m	ESC[29m	set strikethrough mode.
+# Color Name	Foreground Color Code	Background Color Code
+# Black	30	40
+# Red	31	41
+# Green	32	42
+# Yellow	33	43
+# Blue	34	44
+# Magenta	35	45
+# Cyan	36	46
+# White	37	47
+# Default	39	49
+# Reset	0	0
+# ESC[?25l	make cursor invisible
+# ESC[?25h	make cursor visible
+# ESC[?47l	restore screen
+# ESC[?47h	save screen
+# ESC[?1049h	enables the alternative buffer
+# ESC[?1049l	disables the alternative buffer
+
+        ansi = {
+                r"\[(\d+)[mM]": self.ansi_color,
+                r"\[(\d+);(\d+)m": self.ansi_color,
+                r"\[(\d+);(\d+);(\d+)m": self.ansi_color,
+                r"\[(\d+);(\d+)H": self.ansi_position,
+                r"\[(\d+)H": self.ansi_position,
+                r"(\[4l)": self.ansi_unhandled,
+                r"\[\?25l": self.ansi_hide_cursor,
+                r"\[\?25h": self.ansi_show_cursor,
+                r"\[\?1c": self.ansi_hide_cursor,
+                r"\[\?0c": self.ansi_show_cursor,
+                r"(\)0)": self.ansi_unhandled,  # )0 Start / (0 Select VT100 graphics mapping
+                r"(\[(\d+);(\d+)r)": self.ansi_unhandled,  # Set Left and Right Margin ?
+                r"(\[(\d+)n)": self.ansi_unhandled,
+                r"\[(\d+)d": self.ansi_move_left,
+                r"\[\?(\d+)([hl])": self.ansi_dec,
+                r"\[(\d*)([XK])": self.ansi_erase_line,
+                r"\[(\d+)G": self.ansi_position_col,
+                r"(\[(\d+)M)": self.ansi_unhandled,
+                r"\[(\d+)L": self.ansi_insert_lines,
+                r"(\[(\d+)J)": self.ansi_unhandled,
+                r"(\[(\d+)P)": self.ansi_unhandled,
+                r"\[(\d+)C": self.ansi_move_right,
+                r"\[J": self.ansi_erase,
+                r"\[H": self.ansi_pos_home,
+                r"(\[L)": self.ansi_unhandled,
+                r"M": self.ansi_move_up,   # https://www.aivosto.com/articles/control-characters.html
+                r"\[m": self.ansi_reset_color,
+                r"(\[?1000l)": self.ansi_unhandled   # X11 Mouse Reporting
+        }
+
+        if self.remainder:
+            line = self.remainder + line
+            self.remainder = ""
+
+        while self.up:
+            parts = line.split(b"\033", 1)
+            if parts[0] != "":
+                try:
+                    self.puts(parts[0].decode())
+                except Exception:
+                    log(f"err: puts {parts[0]}")
+                    log(traceback.format_exc())
+
+            if len(parts) == 1:
+                break
+
+            part = parts[1]
+            if part == "":
+                self.remainder = b"\033"
+                break
+
+            handled = False
+            for a in ansi:
+                r = re.compile(fr"^{a}(.*)".encode(), re.DOTALL)
+                m = r.match(part)
+                if m:
+                    g = m.groups()
+                    ansi[a]([x.decode() for x in g[:-1]])
+                    line = g[-1]
+                    handled = True
+                    break
+
+            if not handled:
+                if b"\033" not in part:
+                    self.remainder = b"\033" + part
+                    break
+                else:
+                    log(f"unknown esc seq: {part}")
+                    line = part
+
+    def input(self, data):
+        self.addansi(self.bkg, self.row, self.col, data)
+        self.screen.refresh()
+
+
+def terminal_size():
+    h, w, hp, wp = struct.unpack('HHHH', fcntl.ioctl(0, termios.TIOCGWINSZ,
+                                 struct.pack('HHHH', 0, 0, 0, 0)))
+    return w, h
+
+
+def open_terminal(command="bash", columns=None, lines=None):
+
+    if not columns or not lines:
+        columns, lines = terminal_size()
+
+    p_pid, master_fd = pty.fork()
+    if p_pid == 0:  # Child.
+        argv = shlex.split(command)
+        env = dict(TERM="linux", LC_ALL="en_GB.UTF-8",
+                   COLUMNS=str(columns), LINES=str(lines))
+        os.execvpe(argv[0], argv, env)
+
+    # File-like object for I/O with the child process aka command.
+    p_out = os.fdopen(master_fd, "w+b", 0)
+
+    orig_fl = fcntl.fcntl(master_fd, fcntl.F_GETFL)
+    fcntl.fcntl(master_fd, fcntl.F_SETFL, orig_fl | os.O_NONBLOCK)
+
+    return p_pid, p_out
+
+
+if __name__ == "__main__":
+    curses.wrapper(ClaSH.curses_wrapper)
+
+    loop = asyncio.get_event_loop()
+    if len(sys.argv) > 1:
+        logfile = open("log-slave.txt", "w+")
+        loop.run_until_complete(clash.run_slave())
+    else:
+        logfile = open("log-master.txt", "w+")
+        loop.run_until_complete(clash.run_master())
