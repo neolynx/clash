@@ -801,7 +801,8 @@ def open_terminal(command="bash", columns=None, lines=None):
     return p_pid, p_out
 
 
-if __name__ == "__main__":
+def main():
+    global logfile
     curses.wrapper(ClaSH.curses_wrapper)
 
     loop = asyncio.get_event_loop()
@@ -811,3 +812,7 @@ if __name__ == "__main__":
     else:
         logfile = open("log-master.txt", "w+")
         loop.run_until_complete(clash.run_master())
+
+
+if __name__ == "__main__":
+    main()

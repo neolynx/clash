@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
+__VERSION__ = '0.0.1'
 
-__all__ = ['clash']
-
-__VERSION__ = '0.2.0'
+from .clash import main

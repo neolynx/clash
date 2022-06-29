@@ -43,4 +43,10 @@ setup(
         'License :: OSI Approved :: Apache 2.0',
         'Topic :: Utilities'
     ],
+
+    entry_points={
+        "console_scripts": [
+            "clash = clash:main",
+        ]
+    }
 )
