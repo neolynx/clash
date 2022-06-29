@@ -360,6 +360,8 @@ class ClaSH:
 
                 else:
                     log(f"unknown ascii {ord(c)}")
+            if code > 127:
+                log(f"unknown ascii {ord(c)}")
             else:
                 text += c
 
