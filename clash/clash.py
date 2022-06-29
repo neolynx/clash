@@ -196,10 +196,6 @@ class ClaSH:
             return
 
         idx = 1
-        #for i in range(0, 8):
-        #    curses.init_pair(idx, i, -1)
-        #    idx += 1
-
         for j in range(40, 48):
             for i in range(30, 38):
                 curses.init_pair(idx, i - 30, j - 40)
@@ -227,9 +223,9 @@ class ClaSH:
                     await self.ws.send_str(json.dumps({"output": base64.b64encode(data).decode()}))
 
         def thread_wrapper():
-                newloop = asyncio.new_event_loop()
-                asyncio.set_event_loop(newloop)
-                newloop.run_until_complete(handler(newloop))
+            newloop = asyncio.new_event_loop()
+            asyncio.set_event_loop(newloop)
+            newloop.run_until_complete(handler(newloop))
 
         loop = asyncio.get_event_loop()
         loop.run_in_executor(None, thread_wrapper)
@@ -572,6 +568,10 @@ class ClaSH:
 
     def ansi_erase_line(self, g):
         log(f"erase line {g}")
+        # ESC[K	erase in line (same as ESC[0K)
+        # ESC[0K	erase from cursor to end of line
+        # ESC[1K	erase start of line to the cursor
+        # ESC[2K	erase the entire line
 
         param = g[0]
         variant = g[1]
@@ -602,6 +602,12 @@ class ClaSH:
             log(f"err: {self.row} {start} ' ' * {length}")
 
     def ansi_erase(self, g):
+        # ESC[J	erase in display (same as ESC[0J)
+        # ESC[0J	erase from cursor until end of screen
+        # ESC[1J	erase from cursor to beginning of screen
+        # ESC[2J	erase entire screen
+        # ESC[3J	erase saved lines
+
         if len(g) > 0:
             if g[0] == 2:  # 2J: erase entire screen
                 log("erase screen")
@@ -661,15 +667,6 @@ class ClaSH:
     def addansi(self, bkg, row, col, line):
         # https://espterm.github.io/docs/VT100%20escape%20codes.html
         # https://man7.org/linux/man-pages/man4/console_codes.4.html
-# ESC[J	erase in display (same as ESC[0J)
-# ESC[0J	erase from cursor until end of screen
-# ESC[1J	erase from cursor to beginning of screen
-# ESC[2J	erase entire screen
-# ESC[3J	erase saved lines
-# ESC[K	erase in line (same as ESC[0K)
-# ESC[0K	erase from cursor to end of line
-# ESC[1K	erase start of line to the cursor
-# ESC[2K	erase the entire line
 # ESC[1;34;{...}m		Set graphics modes for cell, separated by semicolon (;).
 # ESC[0m		reset all modes (styles and colors)
 # ESC[1m	ESC[22m	set bold mode.
