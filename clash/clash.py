@@ -186,6 +186,8 @@ class ClaSH:
         # self.screen.bkgd(" ", self.colors["bkg"])
         self.screen.refresh()
         self.height, self.width = self.bkg.getmaxyx()
+        self.margin_top = 0
+        self.margin_bottom = self.height
 
         curses.start_color()
         curses.use_default_colors()
@@ -310,7 +312,7 @@ class ClaSH:
             log("slave :reconnecting")
 
     def linefeed(self):
-        if self.row < self.height - 1:
+        if self.row < self.margin_bottom - 1:
             self.row += 1
             log(f"row: {self.row}")
             self.screen.move(self.row, self.col)
@@ -647,6 +649,12 @@ class ClaSH:
     def ansi_clear_screen(self, g):
         self.screen.clear()
 
+    def ansi_set_margin(self, g):
+        self.margin_top = int(g[0]) - 1
+        self.margin_bottom = int(g[1]) - 1
+        self.screen.setscrreg(self.margin_top, self.margin_bottom)
+        log(f"scroll margin: {self.margin_top} {self.margin_bottom}")
+
     def ansi_dec(self, g):
         opt = g[0]
         val = False
@@ -707,7 +715,7 @@ class ClaSH:
                 r"\[\?1c": self.ansi_hide_cursor,
                 r"\[\?0c": self.ansi_show_cursor,
                 r"(\)0)": self.ansi_unhandled,  # )0 Start / (0 Select VT100 graphics mapping
-                r"(\[(\d+);(\d+)r)": self.ansi_unhandled,  # Set Left and Right Margin ?
+                r"\[(\d+);(\d+)r": self.ansi_set_margin,
                 r"(\[(\d+)n)": self.ansi_unhandled,
                 r"\[(\d+)d": self.ansi_move_left,
                 r"\[\?(\d+)([hl])": self.ansi_dec,
