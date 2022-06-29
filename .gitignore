@@ -1,0 +1,9 @@
+.pybuild/
+clash.egg-info/
+debian/.debhelper/
+debian/debhelper-build-stamp
+debian/files
+debian/python3-clash.postinst.debhelper
+debian/python3-clash.prerm.debhelper
+debian/python3-clash.substvars
+debian/python3-clash/
