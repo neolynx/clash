@@ -231,18 +231,6 @@ class ClaSH:
 
         loop = asyncio.get_event_loop()
         loop.run_in_executor(None, thread_wrapper)
-        # asyncio.create_task(handler())
-
-        # def on_pty_output():
-        #     try:
-        #         data = self.p_out.read(1024)
-        #     except Exception:
-        #         self.up = False
-        #         loop.remove_reader(self.p_out)
-        #         return
-        #     self.input(data.decode())
-
-        # loop.add_reader(self.p_out, on_pty_output)
 
     async def handle_master_stdin(self, data):
         self.p_out.write(data)
@@ -349,13 +337,10 @@ class ClaSH:
                 if code == 7:  # Bell
                     log("beep")
                 elif code == 8:  # BS
-                    log("BS")
                     if self.col > 0:
                         self.col -= 1
                         self.screen.move(self.row, self.col)
-                        log(f"pos: {self.row} {self.col}")
                 elif code == 9:  # Tab
-                    log("Tab")
                     if self.col < self.width - 8:
                         try:
                             self.bkg.addstr(self.row, self.col, "        ", self.color)
@@ -363,17 +348,12 @@ class ClaSH:
                             log(f"err: {self.row} {self.col} '        ")
                         self.col += 8
                         self.screen.move(self.row, self.col)
-                        log(f"pos: {self.row} {self.col}")
                 elif code == 10:  # LF
-                    log("LF")
                     self.linefeed()
                     self.screen.move(self.row, self.col)
-                    log(f"pos: {self.row} {self.col}")
                 elif code == 13:  # CR
-                    log("CR")
                     self.col = 0
                     self.screen.move(self.row, self.col)
-                    log(f"pos: {self.row} {self.col}")
                 elif code == 15:  # reset font ??
                     self.flags = 0
                     self.color_idx = 0
@@ -387,8 +367,6 @@ class ClaSH:
             self.puttext(text)
 
     def set_color(self, params):
-        # [0;10;1m = bold
-
         # 0     	Reset or normal
         # 1     	Bold or increased intensity
         # 2     	Faint, decreased intensity, or dim
@@ -437,8 +415,6 @@ class ClaSH:
         # 90–97 	Set bright foreground color
         # 100–107 	Set bright background color
 
-        log(f"clr {params}")
-
         color_fg = None
         color_bg = None
         for param in params:
@@ -452,8 +428,8 @@ class ClaSH:
                 self.flags |= curses.A_BOLD
             elif param == 2:
                 self.flags |= curses.A_DIM
-            elif param == 3:  # italic
-                #self.flags |= curses.
+            elif param == 3:
+                # self.flags |= curses.A_ITALIC ??
                 pass
             elif param == 4:
                 self.flags |= curses.A_UNDERLINE
@@ -502,7 +478,6 @@ class ClaSH:
         self.set_color([int(x) for x in g])
 
     def ansi_move_up(self, g):
-        # g = m.groups()
         # FIXME: get rows optionally grom g[0]?
         rows = 1
         log(f"mov: up {rows} from {self.row}")
@@ -510,14 +485,12 @@ class ClaSH:
         if self.row < 0:
             self.row = 0
         self.screen.move(self.row, self.col)
-        log(f"pos: {self.row} {self.col}")
 
     def ansi_move_right(self, g):
         cols = g[0]
         log(f"mov: right {cols} from {self.col}")
         self.col += int(cols) - 1
         self.screen.move(self.row, self.col)
-        log(f"pos: {self.row} {self.col}")
 
     def ansi_move_left(self, g):
         cols = g[0]
@@ -526,7 +499,6 @@ class ClaSH:
         if self.col < 0:
             self.col = 0
         self.screen.move(self.row, self.col)
-        log(f"pos: {self.row} {self.col}")
 
     def ansi_position_col(self, g):
         col = g[0]
@@ -546,7 +518,6 @@ class ClaSH:
                 log(f"err: {self.row} 0 ' ' * {self.width}")
 
         self.screen.move(self.row, self.col)
-        log(f"pos: {self.row} {self.col}")
 
     def ansi_position(self, g):
         if len(g) > 1:
@@ -558,7 +529,6 @@ class ClaSH:
             self.col = int(col) - 1
         try:
             self.screen.move(self.row, self.col)
-            log(f"pos: {self.row} {self.col}")
         except Exception:
             log(f"err: move {self.row} {self.col}")
 
@@ -566,7 +536,6 @@ class ClaSH:
         self.row = 0
         self.col = 0
         self.screen.move(self.row, self.col)
-        log(f"pos: home (0, 0)")
 
     def ansi_erase_line(self, g):
         log(f"erase line {g}")
@@ -578,7 +547,6 @@ class ClaSH:
         param = g[0]
         variant = g[1]
 
-        log(f"variant: {variant}, param: {param}")
         if variant == "X":  # erase right with optional length
             if param is not None:
                 length = int(param)
@@ -612,7 +580,6 @@ class ClaSH:
 
         if len(g) > 0:
             if g[0] == 2:  # 2J: erase entire screen
-                log("erase screen")
                 self.row = 0
                 self.col = 0
                 self.screen.move(self.row, self.col)
@@ -626,7 +593,6 @@ class ClaSH:
             # TODO: handle 3J
 
         else:  # erase rest of line and screen
-            log("erase rest of screen")
             blank = " " * (self.width - self.col)
             try:
                 self.bkg.addstr(self.row, self.col, blank, self.color)
@@ -685,23 +651,12 @@ class ClaSH:
 # ESC[7m	ESC[27m	set inverse/reverse mode
 # ESC[8m	ESC[28m	set hidden/invisible mode
 # ESC[9m	ESC[29m	set strikethrough mode.
-# Color Name	Foreground Color Code	Background Color Code
-# Black	30	40
-# Red	31	41
-# Green	32	42
-# Yellow	33	43
-# Blue	34	44
-# Magenta	35	45
-# Cyan	36	46
-# White	37	47
 # Default	39	49
 # Reset	0	0
-# ESC[?25l	make cursor invisible
-# ESC[?25h	make cursor visible
-# ESC[?47l	restore screen
-# ESC[?47h	save screen
-# ESC[?1049h	enables the alternative buffer
-# ESC[?1049l	disables the alternative buffer
+#       ESC [ 6 n
+#              Cursor position report (CPR): Answer is ESC [ y ; x R,
+#              where x,y is the cursor location.
+
 
         ansi = {
                 r"\[(\d+)[mM]": self.ansi_color,
@@ -722,13 +677,12 @@ class ClaSH:
                 r"\[(\d*)([XK])": self.ansi_erase_line,
                 r"\[(\d+)G": self.ansi_position_col,
                 r"(\[(\d+)M)": self.ansi_unhandled,
-                r"\[(\d+)L": self.ansi_insert_lines,
+                r"\[(\d*)L": self.ansi_insert_lines,
                 r"(\[(\d+)J)": self.ansi_unhandled,
                 r"(\[(\d+)P)": self.ansi_unhandled,
                 r"\[(\d+)C": self.ansi_move_right,
                 r"\[J": self.ansi_erase,
                 r"\[H": self.ansi_pos_home,
-                r"(\[L)": self.ansi_unhandled,
                 r"M": self.ansi_move_up,   # https://www.aivosto.com/articles/control-characters.html
                 r"\[m": self.ansi_reset_color,
                 r"(\[?1000l)": self.ansi_unhandled   # X11 Mouse Reporting
