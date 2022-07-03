@@ -701,7 +701,7 @@ class ClaSH:
             parts = line.split(b"\033", 1)
             if parts[0] != "":
                 try:
-                    self.puts(parts[0].decode())
+                    self.puts(parts[0].decode(errors="replace"))
                 except Exception:
                     log(f"err: puts {parts[0]}")
                     log(traceback.format_exc())
