@@ -47,18 +47,16 @@ class ClaSH:
         global clash
         clash = ClaSH(bkg)
 
-    def get_color(self, b, f):
-        return curses.color_pair(b * 16 + f + 1)
-
     def __init__(self, bkg):
         self.bkg = bkg
         self.remainder = ""
         self.flags = 0
-        self.color_idx = 0
         self.up = True
         self.col = 0
         self.row = 0
         self.ws = None
+        self.color_fg = -1
+        self.color_bg = -1
 
     async def handle_server_msg(self, msg):
         log(f"srv: msg {msg}")
@@ -70,7 +68,9 @@ class ClaSH:
                       "cols": self.width,
                       "col": self.col,
                       "row": self.row,
-                      "color": self.color_idx,
+                      "color_fg": self.color_fg,
+                      "color_bg": self.color_bg,
+                      "color_flags": self.flags,
                       "dump": []}}
             for row in range(0, self.height):
                 for col in range(0, self.width):
@@ -95,7 +95,9 @@ class ClaSH:
                         self.screen.addch(r, c, ch)
                     except Exception:
                         pass
-            self.color_idx = scrinit['color']
+            self.color_fg = scrinit['color_fg']
+            self.color_bg = scrinit['color_bg']
+            self.color_flags = scrinit['color_flags']
             self.col = scrinit['col']
             self.row = scrinit['row']
 
@@ -183,7 +185,6 @@ class ClaSH:
         curses.nl()
         self.screen.keypad(1)
         self.screen.scrollok(False)
-        # self.screen.bkgd(" ", self.colors["bkg"])
         self.screen.refresh()
         self.height, self.width = self.bkg.getmaxyx()
         self.margin_top = 0
@@ -198,11 +199,18 @@ class ClaSH:
             return
 
         idx = 1
+        curses.init_pair(idx, -1, -1)
+        idx += 1
+        for i in range(30, 38):
+            curses.init_pair(idx, i - 30, -1)
+            idx += 1
+        for i in range(40, 48):
+            curses.init_pair(idx, -1, i - 40)
+            idx += 1
         for j in range(40, 48):
             for i in range(30, 38):
                 curses.init_pair(idx, i - 30, j - 40)
                 idx += 1
-        self.color = curses.color_pair(0)
 
     async def init_pty(self):
         self.shell_pid, self.p_out = open_terminal()
@@ -217,6 +225,7 @@ class ClaSH:
                     break
 
                 try:
+                    log(f"pty: {data}")
                     self.input(data)
                 except Exception:
                     log(traceback.format_exc())
@@ -310,12 +319,14 @@ class ClaSH:
             self.screen.scrollok(False)
 
     def puttext(self, text):
+        color = self.get_color()
+        log(f"put: {text}")
         length = len(text)
         if self.col + length > self.width:
             log(f"err: truncating {length} to {self.width - self.col - 1} rest: {bytes(text[self.width - self.col - 1:].encode())}")
             length = self.width - self.col - 1
         try:
-            self.bkg.addstr(self.row, self.col, text[:length], self.color)
+            self.bkg.addstr(self.row, self.col, text[:length], color)
         except Exception:
             log(f"err: {self.row} {self.col} {bytes(text.encode())}")
         self.col += length
@@ -342,7 +353,7 @@ class ClaSH:
                 elif code == 9:  # Tab
                     if self.col < self.width - 8:
                         try:
-                            self.bkg.addstr(self.row, self.col, "        ", self.color)
+                            self.bkg.addstr(self.row, self.col, "        ", self.get_color())
                         except Exception:
                             log(f"err: {self.row} {self.col} '        ")
                         self.col += 8
@@ -352,10 +363,14 @@ class ClaSH:
                     self.screen.move(self.row, self.col)
                 elif code == 13:  # CR
                     self.col = 0
-                    self.screen.move(self.row, self.col)
+                    try:
+                        self.screen.move(self.row, self.col)
+                    except Exception:
+                        log("err: CR move down")
                 elif code == 15:  # reset font ??
                     self.flags = 0
-                    self.color_idx = 0
+                    self.color_fg = -1
+                    self.color_bg = -1
 
                 else:
                     log(f"unknown ascii {ord(c)}")
@@ -416,22 +431,20 @@ class ClaSH:
         # 90–97 	Set bright foreground color
         # 100–107 	Set bright background color
 
-        color_fg = None
-        color_bg = None
         for param in params:
             if param is None:
                 continue
 
             if param == 0:
                 self.flags = 0
-                self.color_idx = 0
+                self.color_fg = -1
+                self.color_bg = -1
             elif param == 1:
                 self.flags |= curses.A_BOLD
             elif param == 2:
                 self.flags |= curses.A_DIM
             elif param == 3:
-                # self.flags |= curses.A_ITALIC ??
-                pass
+                self.flags |= curses.A_ITALIC
             elif param == 4:
                 self.flags |= curses.A_UNDERLINE
             elif param == 5:
@@ -442,38 +455,62 @@ class ClaSH:
                 self.flags |= curses.A_REVERSE
 
             elif param >= 30 and param <= 37:
-                color_fg = param - 30 + 1
+                self.color_fg = param
             elif param >= 40 and param <= 47:
-                color_bg = param - 40 + 1
+                self.color_bg = param
 
             elif param >= 90 and param <= 97:
-                color_fg = param - 90 + 1
+                self.color_fg = param
                 self.flags |= curses.A_STANDOUT
             elif param >= 100 and param <= 107:
-                color_bg = param - 100 + 1
+                self.color_bg = param
                 self.flags |= curses.A_STANDOUT
 
             elif param == 39:
-                self.color_idx = 0
+                self.color_fg = -1
+            elif param == 49:
+                self.color_bg = -1
 
-        if color_fg:
-            if color_bg:
-                self.color_idx = color_fg + color_bg * 8
-            else:
-                self.color_idx = color_fg
+    def get_color(self):
+        fg = bg = None
+        if self.color_fg == -1:
+            fg = -1
+        elif self.color_fg >= 30 and self.color_fg <= 37:
+            self.flags &= ~curses.A_STANDOUT
+            fg = self.color_fg - 30
+        elif self.color_fg >= 90 and self.color_fg <= 97:
+            self.flags |= curses.A_STANDOUT
+            fg = self.color_fg - 90
+
+        if self.color_bg == -1:
+            bg = -1
+        elif self.color_bg >= 40 and self.color_bg <= 47:
+            # self.flags &= ~A_BRIGHT
+            bg = self.color_bg - 40
+        elif self.color_bg >= 100 and self.color_bg <= 107:
+            # self.flags |= A_BRIGHT
+            bg = self.color_bg - 100
+
+        if fg == -1 and bg == -1:
+            color_idx = 0
+        elif fg == -1:
+            color_idx = bg * 8 + 2
+        elif bg == -1:
+            color_idx = fg + 2
         else:
-            if color_bg:
-                self.color_idx = color_bg * 8
+            color_idx = fg + (bg + 2) * 8 + 2
 
-        self.color = curses.color_pair(self.color_idx) | self.flags
+        log(f"color: {fg} {bg} {color_idx}")
+        log(f"clr: {self.color_fg} {self.color_bg} {self.flags}")
+        return curses.color_pair(color_idx) | self.flags
 
     def ansi_unhandled(self, g):
         log(f"todo: {g[0]}")
 
     def ansi_reset_color(self, g):
-        self.color_idx = 0
+        self.color_fg = -1
+        self.color_bg = -1
         self.flags = 0
-        self.color = curses.color_pair(self.color_idx)
 
     def ansi_color(self, g):
         self.set_color([int(x) for x in g])
@@ -512,7 +549,7 @@ class ClaSH:
         for i in count:
             self.row += 1
             try:
-                self.bkg.addstr(self.row, 0, blank, self.color)
+                self.bkg.addstr(self.row, 0, blank, self.get_color())
             except Exception:
                 log(f"err: {self.row} 0 ' ' * {self.width}")
 
@@ -567,7 +604,7 @@ class ClaSH:
 
         blank = " " * length
         try:
-            self.bkg.addstr(self.row, start, blank, self.color)
+            self.bkg.addstr(self.row, start, blank, self.get_color())
         except Exception:
             log(f"err: {self.row} {start} ' ' * {length}")
 
@@ -586,7 +623,7 @@ class ClaSH:
                 blank = " " * self.width
                 for r in range(self.row, self.height - 1):
                     try:
-                        self.bkg.addstr(r, 0, blank, self.color)
+                        self.bkg.addstr(r, 0, blank, self.get_color())
                     except Exception:
                         log(f"err: {r} 0 ' ' * {self.width}")
 
@@ -595,14 +632,14 @@ class ClaSH:
         else:  # erase rest of line and screen
             blank = " " * (self.width - self.col)
             try:
-                self.bkg.addstr(self.row, self.col, blank, self.color)
+                self.bkg.addstr(self.row, self.col, blank, self.get_color())
             except Exception:
                 log(f"err: {self.row} {self.col} ' ' * {self.width - self.col}")
 
             blank = " " * self.width
             for r in range(self.row, self.height - 1):
                 try:
-                    self.bkg.addstr(r, 0, blank, self.color)
+                    self.bkg.addstr(r, 0, blank, self.get_color())
                 except Exception:
                     log(f"err: {r} 0 ' ' * {self.width}")
 
