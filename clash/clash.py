@@ -302,10 +302,9 @@ class ClaSH:
     def linefeed(self):
         if self.row < self.margin_bottom - 1:
             self.row += 1
-            log(f"row: {self.row}")
             self.screen.move(self.row, self.col)
         else:
-            log("scrolling")
+            log("scroll up")
             self.screen.scrollok(True)
             self.screen.scroll()
             self.screen.scrollok(False)
@@ -360,8 +359,8 @@ class ClaSH:
 
                 else:
                     log(f"unknown ascii {ord(c)}")
-            if code > 127:
-                log(f"unknown ascii {ord(c)}")
+#            if code > 127:
+#                log(f"unknown ascii {ord(c)}")
             else:
                 text += c
 
@@ -529,6 +528,7 @@ class ClaSH:
         elif len(g) == 1:
             col = g[0]
             self.col = int(col) - 1
+        log(f"pos: {self.row} {self.col}")
         try:
             self.screen.move(self.row, self.col)
         except Exception:
@@ -666,7 +666,7 @@ class ClaSH:
                 r"\[(\d+);(\d+);(\d+)m": self.ansi_color,
                 r"\[(\d+);(\d+)H": self.ansi_position,
                 r"\[(\d+)H": self.ansi_position,
-                r"(\[4l)": self.ansi_unhandled,
+                r"(\[4l)": self.ansi_unhandled,  # ReSet insert mode.
                 r"\[\?25l": self.ansi_hide_cursor,
                 r"\[\?25h": self.ansi_show_cursor,
                 r"\[\?1c": self.ansi_hide_cursor,
@@ -677,17 +677,20 @@ class ClaSH:
                 r"\[(\d+)d": self.ansi_move_left,
                 r"\[\?(\d+)([hl])": self.ansi_dec,
                 r"\[(\d*)([XK])": self.ansi_erase_line,
+                r"(\[(\d+)A)": self.ansi_unhandled,  # move cursor up
                 r"\[(\d+)G": self.ansi_position_col,
                 r"(\[(\d+)M)": self.ansi_unhandled,
                 r"\[(\d*)L": self.ansi_insert_lines,
                 r"(\[(\d+)J)": self.ansi_unhandled,
-                r"(\[(\d+)P)": self.ansi_unhandled,
+                r"(\[(\d+)P)": self.ansi_unhandled,  # delete n chars from pos
                 r"\[(\d+)C": self.ansi_move_right,
                 r"\[J": self.ansi_erase,
                 r"\[H": self.ansi_pos_home,
                 r"M": self.ansi_move_up,   # https://www.aivosto.com/articles/control-characters.html
                 r"\[m": self.ansi_reset_color,
-                r"(\[?1000l)": self.ansi_unhandled   # X11 Mouse Reporting
+                r"(\[?1000l)": self.ansi_unhandled,  # X11 Mouse Reporting
+                r"(c)": self.ansi_unhandled,  # Reset
+                r"(\]R)": self.ansi_unhandled,  # Reset Palette
         }
 
         if self.remainder:
