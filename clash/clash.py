@@ -493,12 +493,10 @@ class ClaSH:
         self.col += int(cols) - 1
         self.screen.move(self.row, self.col)
 
-    def ansi_move_left(self, g):
-        cols = g[0]
-        log(f"mov: left {cols} from {self.col}")
-        self.col -= int(cols) - 1
-        if self.col < 0:
-            self.col = 0
+    def ansi_move_row(self, g):
+        row = g[0]
+        self.row = int(row) - 1
+        log(f"row: {self.row}")
         self.screen.move(self.row, self.col)
 
     def ansi_position_col(self, g):
@@ -673,8 +671,8 @@ class ClaSH:
                 r"\[\?0c": self.ansi_show_cursor,
                 r"(\)0)": self.ansi_unhandled,  # )0 Start / (0 Select VT100 graphics mapping
                 r"\[(\d+);(\d+)r": self.ansi_set_margin,
-                r"(\[(\d+)n)": self.ansi_unhandled,
-                r"\[(\d+)d": self.ansi_move_left,
+                r"(\[(\d+)n)": self.ansi_unhandled,  # Status Report
+                r"\[(\d+)d": self.ansi_move_row,
                 r"\[\?(\d+)([hl])": self.ansi_dec,
                 r"\[(\d*)([XK])": self.ansi_erase_line,
                 r"(\[(\d+)A)": self.ansi_unhandled,  # move cursor up
