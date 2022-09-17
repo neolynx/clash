@@ -373,7 +373,7 @@ class ClaSH:
                     self.color_bg = -1
 
                 else:
-                    log(f"unknown ascii {ord(c)}")
+                    log(f"todo: unknown ascii {ord(c)}")
 #            if code > 127:
 #                log(f"unknown ascii {ord(c)}")
             else:
@@ -615,8 +615,8 @@ class ClaSH:
         # ESC[2J	erase entire screen
         # ESC[3J	erase saved lines
 
-        if len(g) > 0:
-            if g[0] == 2:  # 2J: erase entire screen
+        if len(g) > 1:
+            if g[1] == "2":  # 2J: erase entire screen
                 self.row = 0
                 self.col = 0
                 self.screen.move(self.row, self.col)
@@ -627,7 +627,8 @@ class ClaSH:
                     except Exception:
                         log(f"err: {r} 0 ' ' * {self.width}")
 
-            # TODO: handle 3J
+            else:
+                log(f"todo: {g}")
 
         else:  # erase rest of line and screen
             blank = " " * (self.width - self.col)
@@ -649,6 +650,20 @@ class ClaSH:
     def ansi_show_cursor(self, g):
         curses.curs_set(1)
 
+    def ansi_report(self, g):
+        log(f"report {g}")
+        code = None
+        if len(g) > 1:
+            try:
+                code = int(g[1])
+            except Exception:
+                pass
+
+        if code == 6:  # get cursoe pos
+            self.p_out.write(f"\x1b[{self.col};{self.row}R".encode())  # ^[<v>;<h>R
+        else:
+            log(f"todo: report code {code}")
+
     def ansi_clear_screen(self, g):
         self.screen.clear()
 
@@ -658,7 +673,7 @@ class ClaSH:
         self.screen.setscrreg(self.margin_top, self.margin_bottom)
         log(f"scroll margin: {self.margin_top} {self.margin_bottom}")
 
-    def ansi_dec(self, g):
+    def dec_private_modes(self, g):
         opt = g[0]
         val = False
         if g[1] == 'h':  # set
@@ -673,12 +688,15 @@ class ClaSH:
             log("dec: X11 mouse {val}")
 
         else:
-            log(f"dec: {opt} {val}")
+            log(f"todo: dec {opt} {val}")
+
+    def xterm_set_window_title(self, g):
+        log(f"window title: {g[0]}")
 
     def addansi(self, bkg, row, col, line):
         # https://espterm.github.io/docs/VT100%20escape%20codes.html
         # https://man7.org/linux/man-pages/man4/console_codes.4.html
-# ESC[1;34;{...}m		Set graphics modes for cell, separated by semicolon (;).
+        # https://xtermjs.org/docs/api/vtfeatures/
 # ESC[0m		reset all modes (styles and colors)
 # ESC[1m	ESC[22m	set bold mode.
 # ESC[2m	ESC[22m	set dim/faint mode.
@@ -708,24 +726,29 @@ class ClaSH:
                 r"\[\?0c": self.ansi_show_cursor,
                 r"(\)0)": self.ansi_unhandled,  # )0 Start / (0 Select VT100 graphics mapping
                 r"\[(\d+);(\d+)r": self.ansi_set_margin,
-                r"(\[(\d+)n)": self.ansi_unhandled,  # Status Report
+                r"(\[(\d+)n)": self.ansi_report,
                 r"\[(\d+)d": self.ansi_move_row,
-                r"\[\?(\d+)([hl])": self.ansi_dec,
+                r"\[\?(\d+)([hl])": self.dec_private_modes,
                 r"\[(\d*)([XK])": self.ansi_erase_line,
                 r"(\[(\d+)A)": self.ansi_unhandled,  # move cursor up
                 r"\[(\d+)G": self.ansi_position_col,
                 r"(\[(\d+)M)": self.ansi_unhandled,
                 r"\[(\d*)L": self.ansi_insert_lines,
-                r"(\[(\d+)J)": self.ansi_unhandled,
+                r"(\[(\d*)J)": self.ansi_erase,
                 r"(\[(\d+)P)": self.ansi_unhandled,  # delete n chars from pos
                 r"\[(\d+)C": self.ansi_move_right,
-                r"\[J": self.ansi_erase,
                 r"\[H": self.ansi_pos_home,
                 r"M": self.ansi_move_up,   # https://www.aivosto.com/articles/control-characters.html
                 r"\[m": self.ansi_reset_color,
                 r"(\[?1000l)": self.ansi_unhandled,  # X11 Mouse Reporting
                 r"(c)": self.ansi_unhandled,  # Reset
                 r"(\]R)": self.ansi_unhandled,  # Reset Palette
+                r"\]0;([^\a]+)\a": self.xterm_set_window_title,
+                r"(\[>c)": self.ansi_unhandled,
+                r"(\]10;\?\x07)": self.ansi_unhandled,
+                r"(\]11;\?\x07)": self.ansi_unhandled,
+                r"\[22;(%d)t": self.ansi_unhandled,
+                r"(\[>(%d);(%d)m": self.ansi_unhandled,
         }
 
         if self.remainder:
@@ -765,7 +788,7 @@ class ClaSH:
                     self.remainder = b"\033" + part
                     break
                 else:
-                    log(f"unknown esc seq: {part}")
+                    log(f"todo: unknown esc seq: {part}")
                     line = part
 
     def input(self, data):
@@ -787,8 +810,9 @@ def open_terminal(command="bash", columns=None, lines=None):
     p_pid, master_fd = pty.fork()
     if p_pid == 0:  # Child.
         argv = shlex.split(command)
-        env = dict(TERM="linux", LC_ALL="en_GB.UTF-8",
-                   COLUMNS=str(columns), LINES=str(lines))
+        env = dict(COLUMNS=str(columns), LINES=str(lines))
+        env.update(dict(LANG=os.environ["LANG"],
+                        TERM=os.environ["TERM"]))
         os.execvpe(argv[0], argv, env)
 
     # File-like object for I/O with the child process aka command.
