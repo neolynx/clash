@@ -717,7 +717,27 @@ class ClaSH:
             log(f"todo: dec: X11 mouse {val}")
 
         elif opt == 1049:
-            log(f"todo: dec: Save cursor and switch to alternate buffer clearing it {val}")
+            log(f"dec: Save cursor and switch to alternate buffer clearing it {val}")
+            if val is True:
+                self.savedcol = self.col
+                self.savedrow = self.row
+                self.savedbuffer = []
+                for row in range(0, self.height):
+                    for col in range(0, self.width):
+                        c = self.screen.inch(row, col)
+                        self.savedbuffer.append(c)
+            else:
+                for r in range(0, self.height):
+                    for c in range(0, self.width):
+                        ch = self.savedbuffer[r * self.width + c]
+                        try:
+                            self.screen.addch(r, c, ch)
+                        except Exception as exc:
+                            log(f"todo: {exc}")
+                self.savedbuffer = []
+                self.col = self.savedcol
+                self.row = self.savedrow
+                self.screen.move(self.row, self.col)
 
         elif opt == 2004:
             log(f"todo: dec: Set bracketed paste mode {val}")
