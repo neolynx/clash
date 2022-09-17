@@ -609,14 +609,15 @@ class ClaSH:
             log(f"err: {self.row} {start} ' ' * {length}")
 
     def ansi_erase(self, g):
-        # ESC[J	erase in display (same as ESC[0J)
-        # ESC[0J	erase from cursor until end of screen
-        # ESC[1J	erase from cursor to beginning of screen
-        # ESC[2J	erase entire screen
-        # ESC[3J	erase saved lines
 
         if len(g) > 1:
-            if g[1] == "2":  # 2J: erase entire screen
+            if g[1] == "0" or g[1] == "":  # J / 0J: erase from cursor until end of screen
+                log(f"todo: erase scrollback")
+
+            elif g[1] == "1":  # 1J: erase from cursor to beginning of screen
+                log(f"todo: erase scrollback")
+
+            elif g[1] == "2":  # 2J: erase entire screen
                 self.row = 0
                 self.col = 0
                 self.screen.move(self.row, self.col)
@@ -626,6 +627,9 @@ class ClaSH:
                         self.bkg.addstr(r, 0, blank, self.get_color())
                     except Exception:
                         log(f"err: {r} 0 ' ' * {self.width}")
+
+            elif g[1] == "3":  # 3J: erase saved lines / scrollback
+                log(f"todo: erase scrollback")
 
             else:
                 log(f"todo: {g}")
@@ -673,19 +677,50 @@ class ClaSH:
         self.screen.setscrreg(self.margin_top, self.margin_bottom)
         log(f"scroll margin: {self.margin_top} {self.margin_bottom}")
 
+    def ansi_scroll_up(self, g):
+        rows = int(g[0])
+        log(f"todo: scroll up: {rows}")
+
+    def ansi_keypad(self, g):
+        keypad = g[0]
+        if keypad == "=":
+            log(f"todo: alternate keypad mode")
+        elif keypad == ">":
+            log(f"todo: numkeypad mode")
+
+    def ansi_charset(self, g):
+        log(f"todo: Set United States G0 character set")
+
     def dec_private_modes(self, g):
         opt = g[0]
+        try:
+            opt = int(opt)
+        except Exception:
+            pass
+
         val = False
         if g[1] == 'h':  # set
             val = True
         elif g[1] == 'l':  # reset
             val = False
 
-        if opt == 7:
-            log("dec: autowrap {val}")
+        if opt == 1:
+            log(f"todo: dec: Application Cursor Keys {val}")
 
-        if opt == 1000:
-            log("dec: X11 mouse {val}")
+        elif opt == 7:
+            log(f"todo: dec: autowrap {val}")
+
+        elif opt == 12:
+            log(f"todo: dec: blinking cursor  {val}")
+
+        elif opt == 1000:
+            log(f"todo: dec: X11 mouse {val}")
+
+        elif opt == 1049:
+            log(f"todo: dec: Save cursor and switch to alternate buffer clearing it {val}")
+
+        elif opt == 2004:
+            log(f"todo: dec: Set bracketed paste mode {val}")
 
         else:
             log(f"todo: dec {opt} {val}")
@@ -697,21 +732,6 @@ class ClaSH:
         # https://espterm.github.io/docs/VT100%20escape%20codes.html
         # https://man7.org/linux/man-pages/man4/console_codes.4.html
         # https://xtermjs.org/docs/api/vtfeatures/
-# ESC[0m		reset all modes (styles and colors)
-# ESC[1m	ESC[22m	set bold mode.
-# ESC[2m	ESC[22m	set dim/faint mode.
-# ESC[3m	ESC[23m	set italic mode.
-# ESC[4m	ESC[24m	set underline mode.
-# ESC[5m	ESC[25m	set blinking mode
-# ESC[7m	ESC[27m	set inverse/reverse mode
-# ESC[8m	ESC[28m	set hidden/invisible mode
-# ESC[9m	ESC[29m	set strikethrough mode.
-# Default	39	49
-# Reset	0	0
-#       ESC [ 6 n
-#              Cursor position report (CPR): Answer is ESC [ y ; x R,
-#              where x,y is the cursor location.
-
 
         ansi = {
                 r"\[(\d+)[mM]": self.ansi_color,
@@ -751,14 +771,14 @@ class ClaSH:
                 r"(\[2(\d);(\d);(\d)t)": self.ansi_unhandled,
                 r"(\[>(\d);(\d?)m)": self.ansi_unhandled,
                 r"(\[?2004h)": self.ansi_unhandled,
-                r"(=)": self.ansi_unhandled,
-                r"(>)": self.ansi_unhandled,
-                r"(\(B)": self.ansi_unhandled,
+                r"(=)": self.ansi_keypad,
+                r"(>)": self.ansi_keypad,
+                r"(\(B)": self.ansi_charset,
                 r"(\](\d+)\x07)": self.ansi_unhandled,
                 r"(\[!p)": self.ansi_unhandled,
                 r"(\[\?(\d);(\d)l)": self.ansi_unhandled,
                 r"(\(0)": self.ansi_unhandled,
-                r"(\[(\d)S)": self.ansi_unhandled,
+                r"(\[(\d)S)": self.ansi_scroll_up,
         }
 
         if self.remainder:
