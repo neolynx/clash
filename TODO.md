@@ -82,3 +82,5 @@ todo: [23;2t
 todo: [>4;m
 todo: [>4;2m
 todo: ]10;?
+todo: [6@
+todo: [2@

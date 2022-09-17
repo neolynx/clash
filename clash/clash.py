@@ -94,7 +94,7 @@ class ClaSH:
                     try:
                         self.screen.addch(r, c, ch)
                     except Exception as exc:
-                        log(f"todo: {exc}")
+                        log(f"todo: {exc} {r} {c} {ch}")
 
             self.color_fg = scrinit['color_fg']
             self.color_bg = scrinit['color_bg']
@@ -315,6 +315,12 @@ class ClaSH:
             self.screen.move(self.row, self.col)
         else:
             log("scroll up")
+            # firstline = []
+            # for col in range(0, self.width):
+            #     c = self.screen.inch(0, col)
+            #     firstline.append(c)
+            # self.scrollback.append(firstline)
+
             self.screen.scrollok(True)
             self.screen.scroll()
             self.screen.scrollok(False)
@@ -549,6 +555,13 @@ class ClaSH:
         count = g[0]
         blank = " " * self.width
         self.col = 0
+
+        if self.row == 0:  # first row scroll up
+            log("scroll down")
+            self.screen.scrollok(True)
+            self.screen.scroll(-1)
+            self.screen.scrollok(False)
+
         for i in count:
             self.row += 1
             try:
@@ -736,7 +749,7 @@ class ClaSH:
                         try:
                             self.screen.addch(r, c, ch)
                         except Exception as exc:
-                            log(f"todo: {exc}")
+                            log(f"todo: {exc} {r} {c} {ch}")
                 self.savedbuffer = []
                 self.col = self.savedcol
                 self.row = self.savedrow
