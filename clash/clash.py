@@ -747,8 +747,18 @@ class ClaSH:
                 r"(\[>c)": self.ansi_unhandled,
                 r"(\]10;\?\x07)": self.ansi_unhandled,
                 r"(\]11;\?\x07)": self.ansi_unhandled,
-                r"\[22;(%d)t": self.ansi_unhandled,
-                r"(\[>(%d);(%d)m": self.ansi_unhandled,
+                r"(\[2(\d);(\d)t)": self.ansi_unhandled,
+                r"(\[2(\d);(\d);(\d)t)": self.ansi_unhandled,
+                r"(\[>(\d);(\d?)m)": self.ansi_unhandled,
+                r"(\[?2004h)": self.ansi_unhandled,
+                r"(=)": self.ansi_unhandled,
+                r"(>)": self.ansi_unhandled,
+                r"(\(B)": self.ansi_unhandled,
+                r"(\](\d+)\x07)": self.ansi_unhandled,
+                r"(\[!p)": self.ansi_unhandled,
+                r"(\[\?(\d);(\d)l)": self.ansi_unhandled,
+                r"(\(0)": self.ansi_unhandled,
+                r"(\[(\d)S)": self.ansi_unhandled,
         }
 
         if self.remainder:
@@ -774,7 +784,11 @@ class ClaSH:
 
             handled = False
             for a in ansi:
-                r = re.compile(fr"^{a}(.*)".encode(), re.DOTALL)
+                try:
+                    r = re.compile(fr"^{a}(.*)".encode(), re.DOTALL)
+                except Exception:
+                    log(f"todo: error compiling {a}")
+                    continue
                 m = r.match(part)
                 if m:
                     g = m.groups()
