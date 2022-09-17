@@ -525,9 +525,11 @@ class ClaSH:
         self.screen.move(self.row, self.col)
 
     def ansi_move_right(self, g):
-        cols = g[0]
+        cols = 1
+        if len(g) > 0:
+            cols = int(g[0])
         log(f"mov: right {cols} from {self.col}")
-        self.col += int(cols) - 1
+        self.col += cols
         self.screen.move(self.row, self.col)
 
     def ansi_move_row(self, g):
@@ -776,7 +778,7 @@ class ClaSH:
                 r"\[(\d*)L": self.ansi_insert_lines,
                 r"(\[(\d*)J)": self.ansi_erase,
                 r"(\[(\d+)P)": self.ansi_unhandled,  # delete n chars from pos
-                r"\[(\d+)C": self.ansi_move_right,
+                r"\[(\d*)C": self.ansi_move_right,
                 r"\[H": self.ansi_pos_home,
                 r"M": self.ansi_move_up,   # https://www.aivosto.com/articles/control-characters.html
                 r"\[m": self.ansi_reset_color,
