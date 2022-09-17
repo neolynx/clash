@@ -93,8 +93,9 @@ class ClaSH:
                     ch = scrinit['dump'][r * scrinit['cols'] + c]
                     try:
                         self.screen.addch(r, c, ch)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        log(f"todo: {exc}")
+
             self.color_fg = scrinit['color_fg']
             self.color_bg = scrinit['color_bg']
             self.color_flags = scrinit['color_flags']
@@ -614,7 +615,7 @@ class ClaSH:
 
         if len(g) > 1:
             if g[1] == "0" or g[1] == "":  # J / 0J: erase from cursor until end of screen
-                log(f"todo: erase scrollback")
+                log(f"todo: erase from cursor until end of screen")
 
             elif g[1] == "1":  # 1J: erase from cursor to beginning of screen
                 log(f"todo: erase scrollback")
@@ -743,12 +744,16 @@ class ClaSH:
 
         elif opt == 2004:
             log(f"todo: dec: Set bracketed paste mode {val}")
+            # https://cirw.in/blog/bracketed-paste
 
         else:
             log(f"todo: dec {opt} {val}")
 
     def xterm_set_window_title(self, g):
         log(f"window title: {g[0]}")
+
+    def ansi_secondary_device(self, g):
+        log("todo: dec: set secondary device attributes")
 
     def addansi(self, bkg, row, col, line):
         # https://espterm.github.io/docs/VT100%20escape%20codes.html
@@ -786,7 +791,7 @@ class ClaSH:
                 r"(c)": self.ansi_unhandled,  # Reset
                 r"(\]R)": self.ansi_unhandled,  # Reset Palette
                 r"\]0;([^\a]+)\a": self.xterm_set_window_title,
-                r"(\[>c)": self.ansi_unhandled,
+                r"(\[>c)": self.ansi_secondary_device,
                 r"(\]10;\?\x07)": self.ansi_unhandled,
                 r"(\]11;\?\x07)": self.ansi_unhandled,
                 r"(\[2(\d);(\d)t)": self.ansi_unhandled,

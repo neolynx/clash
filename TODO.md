@@ -35,6 +35,9 @@ todo: (B
 todo: c
     ?? cursorrt              Move cursor right one char             ^[C
 
+todo: [>c
+    DA2	Secondary Device Attributes
+
 todo: dec 2004
     DECSET	DEC Private Set Mode	CSI ? Pm h	Set various terminal attributes
     2004	Set bracketed paste mode.
@@ -61,6 +64,13 @@ todo: ['[J', '']
 todo: [!p
     DECSTR	Soft Terminal Reset	CSI ! p	Reset several terminal attributes to initial state
 
+todo: [13C
+todo: [12C
+todo: [11C
+todo: [10C
+todo: [C
+    CUF	Cursor Forward	CSI Ps C	Move cursor Ps times forward (default=1).
+
 todo: ]104
 todo: ]11;?
 todo: [22;0;0t
@@ -71,4 +81,4 @@ todo: [23;1t
 todo: [23;2t
 todo: [>4;m
 todo: [>4;2m
-todo: [>c
+todo: ]10;?
