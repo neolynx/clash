@@ -7,3 +7,7 @@ debian/python3-clash.postinst.debhelper
 debian/python3-clash.prerm.debhelper
 debian/python3-clash.substvars
 debian/python3-clash/
+*.swp
+debian/clashd.postrm.debhelper
+debian/clashd.substvars
+debian/clashd/
