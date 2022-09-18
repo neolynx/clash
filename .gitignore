@@ -11,3 +11,6 @@ debian/python3-clash/
 debian/clashd.postrm.debhelper
 debian/clashd.substvars
 debian/clashd/
+__pycache__
+log-master.txt
+log-slave.txt
