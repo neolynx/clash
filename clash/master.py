@@ -17,8 +17,9 @@ from .stdin import ClashStdin
 
 class ClashMaster:
 
-    def __init__(self, log=None):
+    def __init__(self, log=None, url="http://localhost:8080/clash"):
         self.log = log
+        self.url = url
         self.up = True
         self.terminal = ClashTerminal(log=log)
         self.shell = ClashShell(log=log)
@@ -132,11 +133,10 @@ class ClashMaster:
             await self.ws.send_str(json.dumps({"output": base64.b64encode(data).decode()}))
 
     async def init_master_connection(self):
-        url = "http://localhost:8080/clash"
         self.client_session = aiohttp.ClientSession()
-        print(f"master: connecting to {url}")
+        print(f"master: connecting to {self.url}")
         try:
-            self.ws = await self.client_session.ws_connect(url)
+            self.ws = await self.client_session.ws_connect(self.url)
         except Exception as exc:
             await self.client_session.close()
             print(exc)

@@ -14,8 +14,9 @@ from .stdin import ClashStdin
 
 class ClashSlave:
 
-    def __init__(self, log=None):
+    def __init__(self, log=None, url="http://localhost:8080/clash"):
         self.log = log
+        self.url = url
         self.up = True
         self.terminal = ClashTerminal(log=log)
         self.stdin = ClashStdin(log=log)
@@ -56,7 +57,7 @@ class ClashSlave:
         print("terminated.\n")
 
     async def init_slave_connection(self, session_id):
-        url = f"http://localhost:8080/clash/{session_id}"
+        url = f"{self.url}/{session_id}"
         self.master_session = aiohttp.ClientSession()
         print(f"slave: connecting to {url}")
         try:

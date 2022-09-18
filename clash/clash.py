@@ -2,6 +2,7 @@
 
 import sys
 import asyncio
+import os
 
 from .master import ClashMaster
 from .slave import ClashSlave
@@ -20,14 +21,20 @@ def log(msg):
 def main():
     global logfile
     loop = asyncio.get_event_loop()
+    url = "http://localhost:8080/clash"
+    try:
+        configfile = open(f"{os.path.expanduser('~')}/.clashrc", "r")
+        url = configfile.readline().strip()
+    except Exception:
+        pass
 
     if len(sys.argv) > 1:
         logfile = open("log-slave.txt", "w+")
-        slave = ClashSlave(log=log)
+        slave = ClashSlave(log=log, url=url)
         loop.run_until_complete(slave.run(sys.argv[1]))
     else:
         logfile = open("log-master.txt", "w+")
-        master = ClashMaster(log=log)
+        master = ClashMaster(log=log, url=url)
         loop.run_until_complete(master.run())
 
 
