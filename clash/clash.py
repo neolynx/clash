@@ -221,7 +221,12 @@ class ClaSH:
             protocol = asyncio.StreamReaderProtocol(reader)
             await newloop.connect_read_pipe(lambda: protocol, self.p_out)
             while self.up:
-                data = await reader.read(1024)
+                try:
+                    data = await reader.read(1024)
+                except Exception:
+                    self.up = False
+                    break
+
                 if not data:
                     break
 
