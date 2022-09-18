@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 
-export PYBUILD_NAME = launchy
+export PYBUILD_NAME = clash
 
 %:
 	dh $@ --with python3 --buildsystem=pybuild

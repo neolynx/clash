@@ -9,3 +9,8 @@ Package: python3-clash
 Architecture: all
 Depends: ${misc:Depends}, ${python:Depends}
 Description: Collaboration Shell
+
+Package: clashd
+Architecture: all
+Depends: ${misc:Depends}, ${python:Depends}
+Description: Collaboration Shell Server

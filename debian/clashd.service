@@ -1,0 +1,9 @@
+[Unit]
+Description=Collaboration Shell Server
+After=network.target
+
+[Service]
+ExecStart=/usr/sbin/clashd
+
+[Install]
+WantedBy=multi-user.target
