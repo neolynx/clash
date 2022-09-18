@@ -13,7 +13,7 @@ class ClashStdin:
         self.log = log
         self.up = True
 
-    async def init(self, stdin_handler):
+    async def start(self, stdin_handler):
         self.old_settings = termios.tcgetattr(sys.stdin)
         new_settings = termios.tcgetattr(sys.stdin)
         new_settings[3] = new_settings[3] & ~(termios.ECHO | termios.ICANON)  # lflags
@@ -26,13 +26,14 @@ class ClashStdin:
         fcntl.fcntl(sys.stdin, fcntl.F_SETFL, orig_fl | os.O_NONBLOCK)
 
         async def handler(newloop):
-            reader = asyncio.StreamReader()
-            protocol = asyncio.StreamReaderProtocol(reader)
-            await newloop.connect_read_pipe(lambda: protocol, sys.stdin)
+            self.reader = asyncio.StreamReader()
+            self.protocol = asyncio.StreamReaderProtocol(self.reader)
+            await newloop.connect_read_pipe(lambda: self.protocol, sys.stdin)
 
             while self.up:
-                data = await reader.read(1024)
+                data = await self.reader.read(1024)
                 if not data:
+                    self.up = False
                     break
                 await stdin_handler(data)
 
@@ -40,13 +41,18 @@ class ClashStdin:
             try:
                 newloop = asyncio.new_event_loop()
                 asyncio.set_event_loop(newloop)
-                newloop.run_until_complete(handler(newloop))
+                self.task = newloop.create_task(handler(newloop))
+                newloop.run_until_complete(self.task)
             except Exception as exc:
-                self.log(str(exc))
+                self.log(f"stdin: {exc}")
 
         loop = asyncio.get_event_loop()
         loop.run_in_executor(None, thread_wrapper)
 
-    def term_any_key(self):
+    def stop(self):
+        self.log("stdin: terminating...")
+        self.up = False
+        self.task.cancel()
         if self.old_settings:
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.old_settings)
+        self.log("stdin: terminated")

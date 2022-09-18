@@ -34,7 +34,7 @@ class ClashShell:
                 if not data:
                     self.up = False
                     break
-            self.log("terminating")
+            self.log("shell: terminated")
 
         def thread_wrapper():
             newloop = asyncio.new_event_loop()

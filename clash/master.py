@@ -44,31 +44,34 @@ class ClashMaster:
             print("connection failed")
             return
 
-        self.log("starting terminal")
+        self.log("terminal: starting")
         self.terminal.start()
 
-        self.log("starting master worker")
+        self.log("master: starting")
         self.session_ready = loop.create_future()
         await self.run_master_worker(loop)
         self.session_id = await(self.session_ready)
 
         self.terminal.input(f"clash session: {self.session_id}\n\r\n".encode())
 
-        self.log("starting shell")
+        self.log("shell: starting")
         await self.shell.start(self.handle_terminal)
 
-        self.log("starting stdin")
-        await self.stdin.init(self.handle_stdin)
+        self.log("stdin: starting")
+        await self.stdin.start(self.handle_stdin)
 
         self.log("idle loop")
         while self.up and self.shell.up:
             await asyncio.sleep(1)
 
-        self.log("stopping master worker")
+        self.log("stdin: stopping...")
+        self.stdin.stop()
+        self.log("master: stopping...")
         await self.stop_master_worker()
-        self.log("stopping terminal")
+        self.log("terminal: stopping...")
         self.terminal.stop()
-        self.log("terminated")
+        self.log("clash: terminated")
+        print("terminated.\n")
 
     async def handle_server_msg(self, msg):
         self.log(f"srv: msg {msg}")
@@ -142,9 +145,11 @@ class ClashMaster:
         return True
 
     async def stop_master_worker(self):
+        self.log("master: terminating...")
         self.up = False
         try:
             await self.ws.close()
         except Exception as exc:
-            self.log(exc)
-        return await(self.master_worker)
+            self.log(f"master: {exc}")
+        await(self.master_worker)
+        self.log("master: terminated")

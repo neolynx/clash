@@ -56,8 +56,12 @@ class ClashTerminal:
                 idx += 1
 
     def stop(self):
-        self.log("terminal terminating...")
+        self.log("terminal: terminating...")
+        curses.nocbreak()
+        self.screen.keypad(False)
+        curses.echo()
         curses.endwin()
+        self.log("terminal: terminated")
 
     def linefeed(self):
         if self.row < self.margin_bottom - 1:
