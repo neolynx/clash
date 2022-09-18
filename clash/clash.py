@@ -3,8 +3,8 @@
 import sys
 import asyncio
 
-from master import ClashMaster
-from slave import ClashSlave
+from .master import ClashMaster
+from .slave import ClashSlave
 
 global logfile
 logfile = None
@@ -17,8 +17,8 @@ def log(msg):
         logfile.flush()
 
 
-if __name__ == "__main__":
-
+def main():
+    global logfile
     loop = asyncio.get_event_loop()
 
     if len(sys.argv) > 1:
@@ -29,3 +29,7 @@ if __name__ == "__main__":
         logfile = open("log-master.txt", "w+")
         master = ClashMaster(log=log)
         loop.run_until_complete(master.run())
+
+
+if __name__ == "__main__":
+    main()

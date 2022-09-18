@@ -10,9 +10,9 @@ import signal
 import functools
 import traceback
 
-from terminal import ClashTerminal
-from shell import ClashShell
-from stdin import ClashStdin
+from .terminal import ClashTerminal
+from .shell import ClashShell
+from .stdin import ClashStdin
 
 
 class ClashMaster:
@@ -44,20 +44,31 @@ class ClashMaster:
             print("connection failed")
             return
 
-        self.terminal.init()
+        self.log("starting terminal")
+        self.terminal.start()
+
+        self.log("starting master worker")
         self.session_ready = loop.create_future()
         await self.run_master_worker(loop)
         self.session_id = await(self.session_ready)
 
         self.terminal.input(f"clash session: {self.session_id}\n\r\n".encode())
 
-        await self.shell.init(self.handle_terminal)
+        self.log("starting shell")
+        await self.shell.start(self.handle_terminal)
+
+        self.log("starting stdin")
         await self.stdin.init(self.handle_stdin)
 
-        while self.up:
+        self.log("idle loop")
+        while self.up and self.shell.up:
             await asyncio.sleep(1)
 
+        self.log("stopping master worker")
         await self.stop_master_worker()
+        self.log("stopping terminal")
+        self.terminal.stop()
+        self.log("terminated")
 
     async def handle_server_msg(self, msg):
         self.log(f"srv: msg {msg}")
@@ -97,13 +108,17 @@ class ClashMaster:
                 elif msg.type == aiohttp.WSMsgType.ERROR:
                     break
             await self.client_session.close()
-            self.slave_worker.set_result(True)
+            self.master_worker.set_result(True)
         asyncio.create_task(worker())
 
     async def handle_stdin(self, data):
         self.shell.p_out.write(data)
 
     async def handle_terminal(self, data):
+        if not data:
+            self.up = False
+            return
+
         try:
             self.log(f"pty: {data}")
             self.terminal.input(data)
@@ -127,4 +142,9 @@ class ClashMaster:
         return True
 
     async def stop_master_worker(self):
+        self.up = False
+        try:
+            await self.ws.close()
+        except Exception as exc:
+            self.log(exc)
         return await(self.master_worker)

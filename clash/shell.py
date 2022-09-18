@@ -15,8 +15,8 @@ class ClashShell:
         self.log = log
         self.up = True
 
-    async def init(self, terminal_handler):
-        self.shell_pid, self.p_out = self.open_terminal()
+    async def start(self, terminal_handler):
+        self.open_terminal()
 
         async def handler(newloop):
             reader = asyncio.StreamReader()
@@ -26,13 +26,15 @@ class ClashShell:
                 try:
                     data = await reader.read(1024)
                 except Exception:
+                    await terminal_handler(None)
                     self.up = False
                     break
 
-                if not data:
-                    break
-
                 await terminal_handler(data)
+                if not data:
+                    self.up = False
+                    break
+            self.log("terminating")
 
         def thread_wrapper():
             newloop = asyncio.new_event_loop()
@@ -42,15 +44,10 @@ class ClashShell:
         loop = asyncio.get_event_loop()
         loop.run_in_executor(None, thread_wrapper)
 
-    def terminal_size(self):
-        h, w, hp, wp = struct.unpack('HHHH', fcntl.ioctl(0, termios.TIOCGWINSZ,
-                                     struct.pack('HHHH', 0, 0, 0, 0)))
-        return w, h
-
     def open_terminal(self, command="bash", columns=None, lines=None):
-
         if not columns or not lines:
-            columns, lines = self.terminal_size()
+            columns, lines, _, _ = struct.unpack('HHHH', fcntl.ioctl(0, termios.TIOCGWINSZ,
+                                                 struct.pack('HHHH', 0, 0, 0, 0)))
 
         p_pid, master_fd = pty.fork()
         if p_pid == 0:  # Child.
@@ -66,4 +63,5 @@ class ClashShell:
         orig_fl = fcntl.fcntl(master_fd, fcntl.F_GETFL)
         fcntl.fcntl(master_fd, fcntl.F_SETFL, orig_fl | os.O_NONBLOCK)
 
-        return p_pid, p_out
+        self.shell_pid = p_pid
+        self.p_out = p_out

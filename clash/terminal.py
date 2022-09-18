@@ -19,7 +19,7 @@ class ClashTerminal:
         self.color_fg = -1
         self.color_bg = -1
 
-    def init(self):
+    def start(self):
         self.screen = curses.initscr()
 
         curses.noecho()
@@ -54,6 +54,10 @@ class ClashTerminal:
             for i in range(30, 38):
                 curses.init_pair(idx, i - 30, j - 40)
                 idx += 1
+
+    def stop(self):
+        self.log("terminal terminating...")
+        curses.endwin()
 
     def linefeed(self):
         if self.row < self.margin_bottom - 1:
@@ -633,6 +637,3 @@ class ClashTerminal:
     def input(self, data):
         self.addansi(self.row, self.col, data)
         self.screen.refresh()
-
-    # FIXME:
-    #    curses.endwin()
