@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import secrets
 
 from aiohttp import web, WSMsgType
 
@@ -9,48 +10,57 @@ from aiohttp import web, WSMsgType
 class ClashServer():
 
     def __init__(self):
-        self.slave_ws = None
         self.app = web.Application()
         self.app["websockets"] = set()
         self.app.router.add_get("/clash", self.master_handler)
-        self.app.router.add_get("/clash/slave", self.slave_handler)
+        self.app.router.add_get("/clash/{session}", self.slave_handler)
         self.app.on_shutdown.append(self.on_shutdown)
+        self.sessions = {}
 
     def run(self):
         web.run_app(self.app)
 
     async def master_handler(self, request):
         print("master: connected")
-        self.master_ws = web.WebSocketResponse()
-        await self.master_ws.prepare(request)
+        session_ws = web.WebSocketResponse()
+        await session_ws.prepare(request)
+
+        session_id = secrets.token_urlsafe(6)
+        await session_ws.send_json({"session": session_id})
+        self.sessions[session_id] = (session_ws, [])
 
         while True:
             try:
-                msg = await self.master_ws.receive()
+                msg = await session_ws.receive()
                 if msg.type == WSMsgType.CLOSE or msg.type == WSMsgType.CLOSED:
                     break
                 elif msg.type == WSMsgType.ERROR:
                     break
                 elif msg.type == WSMsgType.TEXT:
-                    data = json.loads(msg.data)
-                    if self.slave_ws is not None:
+                    for slave_ws in self.sessions[session_id][1]:
                         print("master -> slave")
-                        await self.slave_ws.send_str(msg.data)
+                        await slave_ws.send_str(msg.data)
             except asyncio.CancelledError:
                 pass
 
-        return self.master_ws
+        return session_ws
 
     async def slave_handler(self, request):
-        print("slave: connected")
-        self.slave_ws = web.WebSocketResponse()
-        await self.slave_ws.prepare(request)
+        session_id = request.match_info["session"]
+        if session_id not in self.sessions:
+            return False
+        master_ws = self.sessions[session_id][0]
+        print(f"slave: connected to session {session_id}")
+        slave_ws = web.WebSocketResponse()
+        await slave_ws.prepare(request)
 
-        await self.master_ws.send_str(json.dumps("init"))
+        self.sessions[session_id][1].append(slave_ws)
+
+        await master_ws.send_str(json.dumps("init"))
 
         while True:
             try:
-                msg = await self.slave_ws.receive()
+                msg = await slave_ws.receive()
                 if msg.type == WSMsgType.CLOSE or msg.type == WSMsgType.CLOSED:
                     break
                 elif msg.type == WSMsgType.ERROR:
@@ -59,7 +69,7 @@ class ClashServer():
                     data = json.loads(msg.data)
                     if data.get("input"):
                         print("slave -> master")
-                        await self.master_ws.send_str(msg.data)
+                        await master_ws.send_str(msg.data)
 
             except asyncio.CancelledError:
                 pass

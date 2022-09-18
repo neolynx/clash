@@ -61,8 +61,10 @@ class ClaSH:
     async def handle_server_msg(self, msg):
         log(f"srv: msg {msg}")
         data = json.loads(msg)
-        log("don")
-        if "init" in data:
+        if "session" in data:
+            session_id = data.get("session")
+            self.session_ready.set_result(session_id)
+        elif "init" in data:
             msg = {"screen": {
                       "rows": self.height,
                       "cols": self.width,
@@ -108,31 +110,20 @@ class ClaSH:
             data = base64.b64decode(data.get("output"))
             self.input(data)
 
-    async def connect(self):
-        session = aiohttp.ClientSession()
-        log("connecting")
-        while self.up:
-            try:
-                async with session.ws_connect('http://localhost:8080/clash') as self.ws:
-                    log("connected")
+    async def run_master_worker(self):
+        async def worker():
+            while self.up:
+                msg = await self.ws.receive()
+                if msg.type == aiohttp.WSMsgType.TEXT:
+                    await self.handle_server_msg(msg.data)
+                elif msg.type == aiohttp.WSMsgType.CLOSED:
+                    break
+                elif msg.type == aiohttp.WSMsgType.ERROR:
+                    break
+            await self.client_session.close()
+        asyncio.create_task(worker())
 
-                    while self.up:
-                        msg = await self.ws.receive()
-                        if msg.type == aiohttp.WSMsgType.TEXT:
-                            await self.handle_server_msg(msg.data)
-                        elif msg.type == aiohttp.WSMsgType.CLOSED:
-                            break
-                        elif msg.type == aiohttp.WSMsgType.ERROR:
-                            break
-            except aiohttp.client_exceptions.ClientConnectorError:
-                await asyncio.sleep(1)
-                continue
-            except Exception as exc:
-                raise(exc)
-                await asyncio.sleep(1)
-                log("reconnecting")
-
-    async def run_slave(self):
+    async def run_slave(self, session_id):
         def sig_handler(signum, frame):
             pass
 
@@ -140,10 +131,15 @@ class ClaSH:
         for signame in {'SIGINT', 'SIGTERM'}:
             loop.add_signal_handler(getattr(signal, signame), functools.partial(sig_handler, signame, loop))
 
+        print("Connecting to server ...")
+        if not await self.init_slave_connection(session_id):
+            print("connection failed")
+            return
+
         self.init_curses()
         await self.init_stdin(self.handle_slave_stdin)
 
-        await self.init_slave_connection()
+        await self.run_slave_worker()
 
         while self.up:
             await asyncio.sleep(1)
@@ -166,11 +162,19 @@ class ClaSH:
         for signame in {'SIGINT', 'SIGTERM'}:
             loop.add_signal_handler(getattr(signal, signame), functools.partial(sig_handler, signame, loop))
 
+        print("Connecting to server ...")
+        if not await self.init_master_connection():
+            print("connection failed")
+            return
+
         self.init_curses()
+        self.session_ready = loop.create_future()
+        await self.run_master_worker()
+        self.session_id = await(self.session_ready)
+        self.input(f"clash session: {self.session_id}\n\r\n".encode())
+
         await self.init_pty()
         await self.init_stdin(self.handle_master_stdin)
-
-        await self.init_master_connection()
 
         while self.up:
             await asyncio.sleep(1)
@@ -289,30 +293,46 @@ class ClaSH:
         loop.run_in_executor(None, thread_wrapper)
 
     async def init_master_connection(self):
-        asyncio.create_task(self.connect())
+        url = "http://localhost:8080/clash"
+        self.client_session = aiohttp.ClientSession()
+        print(f"master: connecting to {url}")
+        try:
+            self.ws = await self.client_session.ws_connect(url)
+        except Exception as exc:
+            await self.client_session.close()
+            print(exc)
+            return False
+        print("master: connected")
+        return True
 
-    async def init_slave_connection(self):
-        session = aiohttp.ClientSession()
-        log("slave: connecting")
-        while self.up:
-            try:
-                async with session.ws_connect('http://localhost:8080/clash/slave') as self.ws:
-                    log("slave: connected")
+    async def init_slave_connection(self, session_id):
+        url = f"http://localhost:8080/clash/{session_id}"
+        self.master_session = aiohttp.ClientSession()
+        print(f"slave: connecting to {url}")
+        try:
+            self.ws = await self.master_session.ws_connect(url)
+        except Exception as exc:
+            await self.master_session.close()
+            print(exc)
+            return False
+        print("slave: connected")
+        return True
 
-                    while self.up:
-                        msg = await self.ws.receive()
-                        if msg.type == aiohttp.WSMsgType.TEXT:
-                            try:
-                                await self.handle_slave_msg(msg.data)
-                            except Exception:
-                                log(traceback.format_exc())
-                        elif msg.type == aiohttp.WSMsgType.CLOSED:
-                            break
-                        elif msg.type == aiohttp.WSMsgType.ERROR:
-                            break
-            except Exception:
-                await asyncio.sleep(1)
-            log("slave :reconnecting")
+    async def run_slave_worker(self):
+        async def worker():
+            while self.up:
+                msg = await self.ws.receive()
+                if msg.type == aiohttp.WSMsgType.TEXT:
+                    try:
+                        await self.handle_slave_msg(msg.data)
+                    except Exception:
+                        log(traceback.format_exc())
+                elif msg.type == aiohttp.WSMsgType.CLOSED:
+                    break
+                elif msg.type == aiohttp.WSMsgType.ERROR:
+                    break
+            await self.client_session.close()
+        asyncio.create_task(worker())
 
     def linefeed(self):
         if self.row < self.margin_bottom - 1:
@@ -783,6 +803,7 @@ class ClaSH:
 
     def xterm_set_window_title(self, g):
         log(f"window title: {g[0]}")
+        # self.p_out.write(f"\x1b]0;clash: {g[0]}\x07".encode())
 
     def ansi_secondary_device(self, g):
         log("todo: dec: set secondary device attributes")
@@ -928,7 +949,7 @@ def main():
     loop = asyncio.get_event_loop()
     if len(sys.argv) > 1:
         logfile = open("log-slave.txt", "w+")
-        loop.run_until_complete(clash.run_slave())
+        loop.run_until_complete(clash.run_slave(sys.argv[1]))
     else:
         logfile = open("log-master.txt", "w+")
         loop.run_until_complete(clash.run_master())
