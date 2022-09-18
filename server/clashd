@@ -74,7 +74,7 @@ class ClashServer():
             except asyncio.CancelledError:
                 pass
 
-        return self.slave_ws
+        return slave_ws
 
     async def on_shutdown(self):
         for task in self.app["websockets"]:
