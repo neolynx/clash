@@ -548,7 +548,10 @@ class ClaSH:
     def ansi_move_right(self, g):
         cols = 1
         if len(g) > 0:
-            cols = int(g[0])
+            try:
+                cols = int(g[0])
+            except Exception:
+                pass
         log(f"mov: right {cols} from {self.col}")
         self.col += cols
         self.screen.move(self.row, self.col)
@@ -788,6 +791,7 @@ class ClaSH:
         # https://espterm.github.io/docs/VT100%20escape%20codes.html
         # https://man7.org/linux/man-pages/man4/console_codes.4.html
         # https://xtermjs.org/docs/api/vtfeatures/
+        # https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
 
         ansi = {
                 r"\[(\d+)[mM]": self.ansi_color,
@@ -863,6 +867,7 @@ class ClaSH:
             handled = False
             for a in ansi:
                 try:
+                    # FIXME: precompile
                     r = re.compile(fr"^{a}(.*)".encode(), re.DOTALL)
                 except Exception:
                     log(f"todo: error compiling {a}")
