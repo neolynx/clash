@@ -531,6 +531,15 @@ class ClaSH:
             self.row = 0
         self.screen.move(self.row, self.col)
 
+    def ansi_delete_chars(self, g):
+        num = 1
+        if len(g) > 0:
+            try:
+                num = int(g[0])
+            except Exception:
+                pass
+        self.bkg.addstr(self.row, self.col, " " * num, self.get_color())
+
     def ansi_move_right(self, g):
         cols = 1
         if len(g) > 0:
@@ -795,7 +804,7 @@ class ClaSH:
                 r"(\[(\d+)M)": self.ansi_unhandled,
                 r"\[(\d*)L": self.ansi_insert_lines,
                 r"(\[(\d*)J)": self.ansi_erase,
-                r"(\[(\d+)P)": self.ansi_unhandled,  # delete n chars from pos
+                r"(\[(\d+)P)": self.ansi_delete_chars,  # delete n chars from pos
                 r"\[(\d*)C": self.ansi_move_right,
                 r"\[H": self.ansi_pos_home,
                 r"M": self.ansi_move_up,   # https://www.aivosto.com/articles/control-characters.html
@@ -819,6 +828,8 @@ class ClaSH:
                 r"(\[\?(\d);(\d)l)": self.ansi_unhandled,
                 r"(\(0)": self.ansi_unhandled,
                 r"(\[(\d)S)": self.ansi_scroll_up,
+                r"(\[(\d+)@)": self.ansi_unhandled,  # CSI Ps @  Insert Ps (Blank) Character(s) (default = 1) (ICH).
+                r"\[(\d+)T": self.ansi_unhandled,  # CSI Ps T  Scroll down Ps lines (default = 1) (SD), VT420.
         }
 
         if self.remainder:
