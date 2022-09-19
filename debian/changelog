@@ -1,3 +1,9 @@
+clash (0.0.4) unstable; urgency=medium
+
+  * debian: fix builddeps
+
+ -- André Roth <neolynx@gmail.com>  Mon, 19 Sep 2022 10:53:25 +0200
+
 clash (0.0.3) unstable; urgency=medium
 
   * debian: fix builddeps
