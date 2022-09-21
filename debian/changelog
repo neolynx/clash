@@ -1,3 +1,12 @@
+clash (0.0.5) unstable; urgency=medium
+
+  * slave: fix init position
+  * terminate slave
+  * add dependencies
+  * fix ctrl-c
+
+ -- André Roth <neolynx@gmail.com>  Wed, 21 Sep 2022 21:09:24 +0200
+
 clash (0.0.4) unstable; urgency=medium
 
   * debian: fix builddeps
