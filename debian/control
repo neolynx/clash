@@ -7,10 +7,10 @@ Standards-Version: 3.9.7
 
 Package: python3-clash
 Architecture: all
-Depends: ${misc:Depends}, ${python:Depends}
+Depends: ${misc:Depends}, ${python:Depends}, python3-psutil, python3-aiohttp
 Description: Collaboration Shell
 
 Package: clashd
 Architecture: all
-Depends: ${misc:Depends}, ${python:Depends}
+Depends: ${misc:Depends}, ${python:Depends}, python3-aiohttp
 Description: Collaboration Shell Server

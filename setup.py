@@ -34,6 +34,7 @@ setup(
 
     keywords=[
         'psutil',
+        'aiohttp',
     ],
     classifiers=[
         'Programming Language :: Python',
