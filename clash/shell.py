@@ -16,7 +16,7 @@ class ClashShell:
         self.up = True
 
     async def start(self, terminal_handler):
-        self.open_terminal()
+        self.open_shell()
 
         async def handler(newloop):
             reader = asyncio.StreamReader()
@@ -44,7 +44,7 @@ class ClashShell:
         loop = asyncio.get_event_loop()
         loop.run_in_executor(None, thread_wrapper)
 
-    def open_terminal(self, command="bash", columns=None, lines=None):
+    def open_shell(self, command="bash", columns=None, lines=None):
         if not columns or not lines:
             lines, columns, _, _ = struct.unpack('HHHH', fcntl.ioctl(0, termios.TIOCGWINSZ,
                                                  struct.pack('HHHH', 0, 0, 0, 0)))

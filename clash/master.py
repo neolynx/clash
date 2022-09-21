@@ -31,7 +31,7 @@ class ClashMaster:
             children = current_process.children(recursive=True)
             # FIXME: only kill forground process?
             for child in children:
-                if child.pid == self.shell_pid:
+                if child.pid == self.shell.shell_pid:
                     continue
                 os.kill(int(child.pid), signal.SIGINT)
                 break
