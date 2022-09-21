@@ -109,13 +109,14 @@ class ClashSlave:
                     except Exception as exc:
                         self.log(f"todo: {exc} {r} {c} {ch}")
 
-            self.color_fg = scrinit['color_fg']
-            self.color_bg = scrinit['color_bg']
-            self.color_flags = scrinit['color_flags']
-            self.col = scrinit['col']
-            self.row = scrinit['row']
+            self.terminal.color_fg = scrinit['color_fg']
+            self.terminal.color_bg = scrinit['color_bg']
+            self.terminal.color_flags = scrinit['color_flags']
+            self.terminal.col = scrinit['col']
+            self.terminal.row = scrinit['row']
+            self.log(f"mov: {self.terminal.row}, {self.terminal.col}")
+            self.terminal.screen.move(self.terminal.row, self.terminal.col)
 
-            self.terminal.screen.move(self.row, self.col)
             self.terminal.screen.refresh()
         elif "output" in data:
             data = base64.b64decode(data.get("output"))
