@@ -111,7 +111,12 @@ class ClashMaster:
                     break
                 elif msg.type == aiohttp.WSMsgType.ERROR:
                     break
-            await self.client_session.close()
+            self.up = False
+            try:
+                await self.ws.send_str("{\"bye\":\"bye\"}")
+                await self.client_session.close()
+            except Exception:
+                pass
             self.master_worker.set_result(True)
         asyncio.create_task(worker())
 
@@ -148,6 +153,7 @@ class ClashMaster:
         self.log("master: terminating...")
         self.up = False
         try:
+            await self.ws.send_str("{\"bye\":\"bye\"}")
             await self.ws.close()
         except Exception as exc:
             self.log(f"master: {exc}")

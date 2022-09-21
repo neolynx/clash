@@ -77,18 +77,21 @@ class ClashSlave:
                 msg = await self.ws.receive()
                 if msg.type == aiohttp.WSMsgType.TEXT:
                     try:
-                        await self.handle_slave_msg(msg.data)
+                        if not await self.handle_slave_msg(msg.data):
+                            break
                     except Exception:
                         self.log(traceback.format_exc())
                 elif msg.type == aiohttp.WSMsgType.CLOSED:
                     break
                 elif msg.type == aiohttp.WSMsgType.ERROR:
                     break
-            await self.client_session.close()
+            self.up = False
+            await self.ws.close()
             self.slave_worker.set_result(True)
         asyncio.create_task(worker())
 
     async def stop_slave_worker(self):
+        self.up = False
         return await(self.slave_worker)
 
     async def handle_slave_msg(self, msg):
@@ -117,6 +120,9 @@ class ClashSlave:
         elif "output" in data:
             data = base64.b64decode(data.get("output"))
             self.terminal.input(data)
+        elif "bye" in data:
+            return False
+        return True
 
     async def handle_stdin(self, data):
         await self.ws.send_str(json.dumps({"input": base64.b64encode(data).decode()}))
