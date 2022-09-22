@@ -18,6 +18,7 @@ class ClashTerminal:
         self.row = 0
         self.color_fg = -1
         self.color_bg = -1
+        self.dec_blinking_cursor = True
 
     def start(self):
         self.screen = curses.initscr()
@@ -201,9 +202,14 @@ class ClashTerminal:
             elif param == 4:
                 self.flags |= curses.A_UNDERLINE
             elif param == 5:
-                self.flags |= curses.A_BLINK
+                if self.dec_blinking_cursor:
+                    self.flags |= curses.A_BLINK
+                else:
+                    # self.flags |= curses.A_STANDOUT
+                    self.log("todo: blink with .dec_blinking_cursor false")
             elif param == 6:
-                self.flags |= curses.A_BLINK
+                self.log("todo: color flag 6")
+                self.flags |= curses.A_STANDOUT
             elif param == 7:  # invert colors fg, bg
                 self.flags |= curses.A_REVERSE
 
@@ -469,6 +475,7 @@ class ClashTerminal:
 
         elif opt == 12:
             self.log(f"todo: dec: blinking cursor  {val}")
+            self.dec_blinking_cursor = val
 
         elif opt == 1000:
             self.log(f"todo: dec: X11 mouse {val}")
