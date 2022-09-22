@@ -1,3 +1,10 @@
+clash (0.0.6) unstable; urgency=medium
+
+  * implement dec blinking cursor flag
+  * fix colors
+
+ -- André Roth <neolynx@gmail.com>  Thu, 22 Sep 2022 22:21:22 +0200
+
 clash (0.0.5) unstable; urgency=medium
 
   * slave: fix init position
