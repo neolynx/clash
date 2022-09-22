@@ -41,19 +41,11 @@ class ClashTerminal:
             print("Error: ncurses cannot change color! Please export TERM=xterm-256color")
             return
 
-        idx = 1
-        curses.init_pair(idx, -1, -1)
-        idx += 1
-        for i in range(30, 38):
-            curses.init_pair(idx, i - 30, -1)
-            idx += 1
-        for i in range(40, 48):
-            curses.init_pair(idx, -1, i - 40)
-            idx += 1
-        for j in range(40, 48):
-            for i in range(30, 38):
-                curses.init_pair(idx, i - 30, j - 40)
+        idx = 0
+        for j in range(0, 16):
+            for k in range(0, 16):
                 idx += 1
+                curses.init_pair(idx, k, j)
 
     def stop(self):
         self.log("terminal: terminating...")
@@ -216,16 +208,14 @@ class ClashTerminal:
                 self.flags |= curses.A_REVERSE
 
             elif param >= 30 and param <= 37:
-                self.color_fg = param
+                self.color_fg = param - 30
             elif param >= 40 and param <= 47:
-                self.color_bg = param
+                self.color_bg = param - 40
 
             elif param >= 90 and param <= 97:
-                self.color_fg = param
-                self.flags |= curses.A_STANDOUT
+                self.color_fg = param - 90 + 8
             elif param >= 100 and param <= 107:
-                self.color_bg = param
-                self.flags |= curses.A_STANDOUT
+                self.color_bg = param - 100 + 8
 
             elif param == 39:
                 self.color_fg = -1
@@ -233,36 +223,19 @@ class ClashTerminal:
                 self.color_bg = -1
 
     def get_color(self):
-        fg = bg = None
-        if self.color_fg == -1:
-            fg = -1
-        elif self.color_fg >= 30 and self.color_fg <= 37:
-            self.flags &= ~curses.A_STANDOUT
-            fg = self.color_fg - 30
-        elif self.color_fg >= 90 and self.color_fg <= 97:
-            self.flags |= curses.A_STANDOUT
-            fg = self.color_fg - 90
 
-        if self.color_bg == -1:
-            bg = -1
-        elif self.color_bg >= 40 and self.color_bg <= 47:
-            # self.flags &= ~A_BRIGHT
-            bg = self.color_bg - 40
-        elif self.color_bg >= 100 and self.color_bg <= 107:
-            # self.flags |= A_BRIGHT
-            bg = self.color_bg - 100
-
-        if fg == -1 and bg == -1:
-            color_idx = 0
-        elif fg == -1:
-            color_idx = bg * 8 + 2
-        elif bg == -1:
-            color_idx = fg + 2
+        if self.color_fg == -1 and self.color_bg == -1:
+            color_idx = 256
+        elif self.color_fg == -1:
+            self.log(f"todo: clr: bg with default fg")
+            color_idx = self.color_bg * 16 + 1
+        elif self.color_bg == -1:
+            self.log(f"todo: clr: fg with default bg")
+            color_idx = self.color_fg + 1
         else:
-            color_idx = fg + (bg + 2) * 8 + 2
+            color_idx = self.color_fg + 1 + self.color_bg * 16
 
-        self.log(f"color: {fg} {bg} {color_idx}")
-        self.log(f"clr: {self.color_fg} {self.color_bg} {self.flags}")
+        self.log(f"clr: #{color_idx}: {self.color_fg} {self.color_bg} {self.flags}")
         return curses.color_pair(color_idx) | self.flags
 
     def ansi_unhandled(self, g):
