@@ -26,15 +26,18 @@ class ClashMaster:
         self.stdin = ClashStdin(log=log)
 
     async def run(self):
-        def sig_handler(signum, frame):
+        def sig_handler(signame, frame):
+            if signame == "SIGINT":
+                signum = signal.SIGINT
+            elif signame == "SIGTERM":
+                signum = signal.SIGTERM
+            else:
+                return
             current_process = psutil.Process()
             children = current_process.children(recursive=True)
-            # FIXME: only kill forground process?
+            # FIXME: not stopped/background processes?
             for child in children:
-                if child.pid == self.shell.shell_pid:
-                    continue
-                os.kill(int(child.pid), signal.SIGINT)
-                break
+                os.kill(int(child.pid), signum)
 
         loop = asyncio.get_event_loop()
         for signame in {'SIGINT', 'SIGTERM'}:
