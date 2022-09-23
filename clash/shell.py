@@ -54,7 +54,8 @@ class ClashShell:
             argv = shlex.split(command)
             env = dict(COLUMNS=str(columns), LINES=str(lines))
             env.update(dict(LANG=os.environ["LANG"],
-                            TERM=os.environ["TERM"]))
+                            TERM=os.environ["TERM"],
+                            HOME=os.environ["HOME"]))
             os.execvpe(argv[0], argv, env)
 
         # File-like object for I/O with the child process aka command.
