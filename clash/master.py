@@ -31,16 +31,25 @@ class ClashMaster:
                 signum = signal.SIGINT
             elif signame == "SIGTERM":
                 signum = signal.SIGTERM
+            elif signame == "SIGTSTP":
+                signum = signal.SIGTSTP
+            elif signame == "SIGCONT":
+                signum = signal.SIGCONT
             else:
                 return
             current_process = psutil.Process()
             children = current_process.children(recursive=True)
-            # FIXME: not stopped/background processes?
             for child in children:
-                os.kill(int(child.pid), signum)
+                tgid = None
+                with open(f"/proc/{child.pid}/stat", "r") as f:
+                    line = f.readline()
+                    tgid = int(line.split(" ")[7].strip())
+                if tgid == child.pid:  # foreground process
+                    os.kill(child.pid, signum)
+                    break
 
         loop = asyncio.get_event_loop()
-        for signame in {'SIGINT', 'SIGTERM'}:
+        for signame in {'SIGINT', 'SIGTERM', 'SIGTSTP', 'SIGCONT'}:
             loop.add_signal_handler(getattr(signal, signame), functools.partial(sig_handler, signame, loop))
 
         print("Connecting to server ...")
