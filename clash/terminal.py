@@ -474,7 +474,6 @@ class ClashTerminal:
             self.log(f"todo: dec: autowrap {val}")
 
         elif opt == 12:
-            self.log(f"todo: dec: blinking cursor  {val}")
             self.dec_blinking_cursor = val
 
         elif opt == 1000:
@@ -557,6 +556,7 @@ class ClashTerminal:
                 r"(\[>c)": self.ansi_secondary_device,
                 r"(\]10;\?\x07)": self.ansi_unhandled,
                 r"(\]11;\?\x07)": self.ansi_unhandled,
+                r"(\]12;([^\x07]+)\x07)": self.ansi_unhandled,
                 r"(\[2(\d);(\d)t)": self.ansi_unhandled,
                 r"(\[2(\d);(\d);(\d)t)": self.ansi_unhandled,
                 r"(\[>(\d);(\d?)m)": self.ansi_unhandled,
