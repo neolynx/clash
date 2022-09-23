@@ -264,6 +264,19 @@ class ClashTerminal:
             self.row = 0
         self.screen.move(self.row, self.col)
 
+    def insert_chars(self, g):
+        num = 1
+        if len(g) > 1:
+            try:
+                num = int(g[1])
+            except Exception:
+                pass
+        self.log(f"ins: insert {num} chars at {self.col}")
+        for c in range(self.width - 1, self.col + num - 1, -1):
+            ch = self.screen.inch(self.row, c - num)
+            self.screen.addch(self.row, c, ch)
+        self.screen.addstr(self.row, self.col, " " * num, self.get_color())
+
     def ansi_delete_chars(self, g):
         num = 1
         if len(g) > 1:
@@ -577,7 +590,7 @@ class ClashTerminal:
                 r"(\[\?(\d);(\d)l)": self.ansi_unhandled,
                 r"(\(0)": self.ansi_unhandled,
                 r"(\[(\d)S)": self.ansi_scroll_up,
-                r"(\[(\d+)@)": self.ansi_unhandled,  # CSI Ps @  Insert Ps (Blank) Character(s) (default = 1) (ICH).
+                r"(\[(\d+)@)": self.insert_chars,  # CSI Ps @  Insert Ps (Blank) Character(s) (default = 1) (ICH).
                 r"\[(\d+)T": self.ansi_unhandled,  # CSI Ps T  Scroll down Ps lines (default = 1) (SD), VT420.
         }
 
