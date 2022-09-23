@@ -266,12 +266,19 @@ class ClashTerminal:
 
     def ansi_delete_chars(self, g):
         num = 1
-        if len(g) > 0:
+        if len(g) > 1:
             try:
-                num = int(g[0])
+                num = int(g[1])
             except Exception:
                 pass
-        self.screen.addstr(self.row, self.col, " " * num, self.get_color())
+        if self.col + num > self.width:
+            num = self.width - self.col
+        self.log(f"era: erase {num} chars from {self.col}")
+        for c in range(self.col + num, self.width):
+            ch = self.screen.inch(self.row, c)
+            self.screen.addch(self.row, c - num, ch)
+        self.screen.addstr(self.row, self.col + num, " " * (self.width - num + self.col), self.get_color())
+        self.screen.move(self.row, self.col)
 
     def ansi_move_right(self, g):
         cols = 1
@@ -438,6 +445,7 @@ class ClashTerminal:
         self.margin_top = int(g[0]) - 1
         self.margin_bottom = int(g[1]) - 1
         self.screen.setscrreg(self.margin_top, self.margin_bottom)
+        self.log(f"todo: scroll margin: move cursor")
         self.log(f"scroll margin: {self.margin_top} {self.margin_bottom}")
 
     def ansi_scroll_up(self, g):
