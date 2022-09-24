@@ -24,6 +24,7 @@ class ClashMaster:
         self.shell = ClashShell(log=log)
         self.terminal = ClashTerminal(log=log, shell_input=self.shell.write)
         self.stdin = ClashStdin(log=log)
+        self.sigqueue = asyncio.Queue()
 
     def sig_handler(self, signame):
         if signame == "SIGINT":
@@ -34,6 +35,10 @@ class ClashMaster:
             signum = signal.SIGTSTP
         elif signame == "SIGCONT":
             signum = signal.SIGCONT
+        elif signame == "SIGWINCH":
+            self.log(f"sig: {signame}")
+            self.sigqueue.put_nowait(signame)
+            return
         else:
             self.log(f"todo: sig: {signame}")
             return
@@ -50,17 +55,25 @@ class ClashMaster:
                 break
 
     async def run(self):
-
         loop = asyncio.get_event_loop()
-        for signame in {'SIGINT', 'SIGTERM', 'SIGTSTP', 'SIGCONT'}:
+        for signame in {'SIGINT', 'SIGTERM', 'SIGTSTP', 'SIGCONT', 'SIGWINCH'}:
             loop.add_signal_handler(getattr(signal, signame), functools.partial(self.sig_handler, signame))
+
+        async def sig_worker():
+            while self.up:
+                signame = await self.sigqueue.get()
+                if signame == "SIGWINCH":
+                    self.log(f"sigworker: got {signame}")
+                    self.resize()
+
+        loop.create_task(sig_worker())
 
         if not await self.init_master_connection():
             print(f"connecting to {self.url} failed")
             return
 
         self.log("terminal: starting")
-        self.terminal.start()
+        cols, rows = self.terminal.start()
 
         self.log("master: starting")
         self.session_ready = loop.create_future()
@@ -71,7 +84,7 @@ class ClashMaster:
         self.terminal.input(f"       clash {self.session_id}\r\n\r\n".encode())
 
         self.log("shell: starting")
-        await self.shell.start(self.handle_terminal)
+        await self.shell.start(self.handle_terminal, cols, rows)
 
         self.log("stdin: starting")
         await self.stdin.start(self.handle_stdin)
@@ -174,3 +187,8 @@ class ClashMaster:
             self.log(f"master: {exc}")
         await(self.master_worker)
         self.log("master: terminated")
+
+    def resize(self):
+        cols, rows = self.terminal.resize()
+        self.log(f"resize {cols}x{rows}")
+        self.shell.resize(cols, rows)

@@ -4,6 +4,9 @@ import curses
 import curses.panel
 import re
 import traceback
+import struct
+import fcntl
+import termios
 
 terminal = None
 
@@ -42,6 +45,8 @@ class ClashTerminal:
         if (not curses.can_change_color() or curses.COLORS < 256):
             curses.endwin()
             raise Exception("Error: ncurses cannot change color! Please export TERM=xterm-256color")
+
+        return self.resize()
 
     def stop(self):
         self.log("terminal: terminating...")
@@ -655,3 +660,8 @@ class ClashTerminal:
     def input(self, data):
         self.addansi(self.row, self.col, data)
         self.screen.refresh()
+
+    def resize(self):
+        self.height, self.width, _, _ = struct.unpack('HHHH', fcntl.ioctl(0, termios.TIOCGWINSZ,
+                                                      struct.pack('HHHH', 0, 0, 0, 0)))
+        return self.width, self.height
