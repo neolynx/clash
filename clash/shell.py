@@ -18,10 +18,10 @@ class ClashShell:
     async def start(self, terminal_handler):
         self.open_shell()
 
-        async def handler(newloop):
+        async def handler():
             reader = asyncio.StreamReader()
             protocol = asyncio.StreamReaderProtocol(reader)
-            await newloop.connect_read_pipe(lambda: protocol, self.p_out)
+            await asyncio.get_running_loop().connect_read_pipe(lambda: protocol, self.p_out)
             while self.up:
                 try:
                     data = await reader.read(1024)
@@ -36,21 +36,16 @@ class ClashShell:
                     break
             self.log("shell: terminated")
 
-        def thread_wrapper():
-            newloop = asyncio.new_event_loop()
-            asyncio.set_event_loop(newloop)
-            newloop.run_until_complete(handler(newloop))
-
         loop = asyncio.get_event_loop()
-        loop.run_in_executor(None, thread_wrapper)
+        loop.create_task(handler())
 
     def open_shell(self, command="bash", columns=None, lines=None):
         if not columns or not lines:
             lines, columns, _, _ = struct.unpack('HHHH', fcntl.ioctl(0, termios.TIOCGWINSZ,
                                                  struct.pack('HHHH', 0, 0, 0, 0)))
 
-        p_pid, master_fd = pty.fork()
-        if p_pid == 0:  # Child.
+        self.shell_pid, master_fd = pty.fork()
+        if self.shell_pid == 0:  # child
             argv = shlex.split(command)
             env = dict(COLUMNS=str(columns), LINES=str(lines))
             env.update(dict(LANG=os.environ["LANG"],
@@ -58,14 +53,10 @@ class ClashShell:
                             HOME=os.environ["HOME"]))
             os.execvpe(argv[0], argv, env)
 
-        # File-like object for I/O with the child process aka command.
-        p_out = os.fdopen(master_fd, "w+b", 0)
+        self.p_out = os.fdopen(master_fd, "w+b", 0)
 
         orig_fl = fcntl.fcntl(master_fd, fcntl.F_GETFL)
         fcntl.fcntl(master_fd, fcntl.F_SETFL, orig_fl | os.O_NONBLOCK)
-
-        self.shell_pid = p_pid
-        self.p_out = p_out
 
     def write(self, data):
         try:
