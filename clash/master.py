@@ -55,9 +55,8 @@ class ClashMaster:
         for signame in {'SIGINT', 'SIGTERM', 'SIGTSTP', 'SIGCONT'}:
             loop.add_signal_handler(getattr(signal, signame), functools.partial(self.sig_handler, signame))
 
-        print("Connecting to server ...")
         if not await self.init_master_connection():
-            print("connection failed")
+            print(f"connecting to {self.url} failed")
             return
 
         self.log("terminal: starting")
@@ -88,7 +87,7 @@ class ClashMaster:
         self.log("terminal: stopping...")
         self.terminal.stop()
         self.log("clash: terminated")
-        print("terminated.\n")
+        print("[exited]")
 
     async def handle_server_msg(self, msg):
         self.log(f"srv: msg {msg}")
@@ -157,14 +156,12 @@ class ClashMaster:
 
     async def init_master_connection(self):
         self.client_session = aiohttp.ClientSession()
-        print(f"master: connecting to {self.url}")
         try:
             self.ws = await self.client_session.ws_connect(self.url)
         except Exception as exc:
             await self.client_session.close()
             print(exc)
             return False
-        print("master: connected")
         return True
 
     async def stop_master_worker(self):

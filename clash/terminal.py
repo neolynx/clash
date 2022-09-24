@@ -41,8 +41,7 @@ class ClashTerminal:
 
         if (not curses.can_change_color() or curses.COLORS < 256):
             curses.endwin()
-            print("Error: ncurses cannot change color! Please export TERM=xterm-256color")
-            return
+            raise Exception("Error: ncurses cannot change color! Please export TERM=xterm-256color")
 
     def stop(self):
         self.log("terminal: terminating...")
