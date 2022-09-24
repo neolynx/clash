@@ -21,36 +21,39 @@ class ClashMaster:
         self.log = log
         self.url = url
         self.up = True
-        self.terminal = ClashTerminal(log=log)
         self.shell = ClashShell(log=log)
+        self.terminal = ClashTerminal(log=log, shell_input=self.shell.write)
         self.stdin = ClashStdin(log=log)
 
+    def sig_handler(self, signame):
+        if signame == "SIGINT":
+            signum = signal.SIGINT
+        elif signame == "SIGTERM":
+            signum = signal.SIGTERM
+        elif signame == "SIGTSTP":
+            signum = signal.SIGTSTP
+        elif signame == "SIGCONT":
+            signum = signal.SIGCONT
+        else:
+            self.log(f"todo: sig: {signame}")
+            return
+        self.log(f"sig: {signame}")
+        current_process = psutil.Process()
+        children = current_process.children(recursive=True)
+        for child in children:
+            tgid = None
+            with open(f"/proc/{child.pid}/stat", "r") as f:
+                line = f.readline()
+                tgid = int(line.split(" ")[7].strip())
+            if tgid == child.pid:  # foreground process
+                os.kill(child.pid, signum)
+                break
+
     async def run(self):
-        def sig_handler(signame, frame):
-            if signame == "SIGINT":
-                signum = signal.SIGINT
-            elif signame == "SIGTERM":
-                signum = signal.SIGTERM
-            elif signame == "SIGTSTP":
-                signum = signal.SIGTSTP
-            elif signame == "SIGCONT":
-                signum = signal.SIGCONT
-            else:
-                return
-            current_process = psutil.Process()
-            children = current_process.children(recursive=True)
-            for child in children:
-                tgid = None
-                with open(f"/proc/{child.pid}/stat", "r") as f:
-                    line = f.readline()
-                    tgid = int(line.split(" ")[7].strip())
-                if tgid == child.pid:  # foreground process
-                    os.kill(child.pid, signum)
-                    break
 
         loop = asyncio.get_event_loop()
         for signame in {'SIGINT', 'SIGTERM', 'SIGTSTP', 'SIGCONT'}:
-            loop.add_signal_handler(getattr(signal, signame), functools.partial(sig_handler, signame, loop))
+            loop.add_signal_handler(getattr(signal, signame), functools.partial(self.sig_handler, signame))
 
         print("Connecting to server ...")
         if not await self.init_master_connection():
@@ -110,6 +113,8 @@ class ClashMaster:
         elif "input" in data:
             data = base64.b64decode(data.get("input"))
             self.shell.write(data)
+        elif "signal" in data:
+            self.sig_handler(data.get("signal"))
 
     async def run_master_worker(self, loop):
         self.master_worker = loop.create_future()

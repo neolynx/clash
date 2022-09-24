@@ -20,14 +20,28 @@ class ClashSlave:
         self.up = True
         self.terminal = ClashTerminal(log=log)
         self.stdin = ClashStdin(log=log)
+        self.signal_queue = asyncio.Queue()
 
     async def run(self, session_id):
-        def sig_handler(signum, frame):
-            pass
+
+        def sig_handler(signame, queue):
+            self.log(f"sig: {signame}")
+            queue.put_nowait(signame)
+            self.log(f"queued sig: {signame}")
 
         loop = asyncio.get_event_loop()
-        for signame in {'SIGINT', 'SIGTERM'}:
-            loop.add_signal_handler(getattr(signal, signame), functools.partial(sig_handler, signame, loop))
+        for signame in {'SIGINT', 'SIGTERM', 'SIGTSTP', 'SIGCONT'}:
+            loop.add_signal_handler(getattr(signal, signame), functools.partial(sig_handler, signame, self.signal_queue))
+            # loop.add_signal_handler(getattr(signal, signame), lambda signame=signame: asyncio.create_task(sig_handler(signame)))
+
+        async def signal_worker():
+            while True:
+                sig = await self.signal_queue.get()
+                d = json.dumps({"signal": sig})
+                self.log(f"sending sig: {d}")
+                await self.ws.send_str(d)
+
+        asyncio.create_task(signal_worker())
 
         print("Connecting to server ...")
         if not await self.init_slave_connection(session_id):
