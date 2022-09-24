@@ -68,7 +68,8 @@ class ClashMaster:
         await self.run_master_worker(loop)
         self.session_id = await(self.session_ready)
 
-        self.terminal.input(f"clash session: {self.session_id}\r\n\r\n".encode())
+        self.terminal.input(f"\r\n  -= collaboration shell =-\r\n".encode())
+        self.terminal.input(f"       clash {self.session_id}\r\n\r\n".encode())
 
         self.log("shell: starting")
         await self.shell.start(self.handle_terminal)
