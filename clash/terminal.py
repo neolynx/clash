@@ -20,6 +20,7 @@ class ClashTerminal:
         self.color_fg = -1
         self.color_bg = -1
         self.dec_blinking_cursor = True
+        self.colors = {}
 
     def start(self):
         self.screen = curses.initscr()
@@ -42,12 +43,6 @@ class ClashTerminal:
             curses.endwin()
             print("Error: ncurses cannot change color! Please export TERM=xterm-256color")
             return
-
-        idx = 0
-        for j in range(0, 16):
-            for k in range(0, 16):
-                idx += 1
-                curses.init_pair(idx, k, j)
 
     def stop(self):
         self.log("terminal: terminating...")
@@ -229,24 +224,26 @@ class ClashTerminal:
             elif param == 49:
                 self.color_bg = -1
 
-    def set_color256(self, color):
-        self.log(f"todo: color {color}")
-
     def get_color(self):
+        idx = -1
+        fg = 2  # green
+        bg = 0  # black
 
-        if self.color_fg == -1 and self.color_bg == -1:
-            color_idx = 256
-        elif self.color_fg == -1:
-            self.log(f"todo: clr: bg with default fg")
-            color_idx = self.color_bg * 16 + 1
-        elif self.color_bg == -1:
-            self.log(f"todo: clr: fg with default bg")
-            color_idx = self.color_fg + 1
+        if self.color_fg != -1:
+            fg = self.color_fg
+        if self.color_bg != -1:
+            bg = self.color_bg
+
+        if bg * 256 + fg not in self.colors:
+            idx = len(self.colors)
+            curses.init_pair(idx, fg, bg)
+            self.colors[bg * 256 + fg] = idx
+            self.log(f"clr: add {idx}: {fg}/{bg}")
         else:
-            color_idx = self.color_fg + 1 + self.color_bg * 16
+            idx = self.colors[bg * 256 + fg]
 
-        self.log(f"clr: #{color_idx}: {self.color_fg} {self.color_bg} {self.flags}")
-        return curses.color_pair(color_idx) | self.flags
+        self.log(f"clr: #{idx}: {self.color_fg} {self.color_bg} {self.flags}")
+        return curses.color_pair(idx) | self.flags
 
     def ansi_unhandled(self, g):
         self.log(f"todo: {g[0]}")
@@ -262,7 +259,14 @@ class ClashTerminal:
 
     def ansi_color256(self, g):
         self.log(f"clr256: {g}")
-        self.set_color256(int(g[0]))
+        t = g[0]
+        color = g[1]
+        if t == "38":
+            self.color_fg = int(color)
+        elif t == "48":
+            self.color_bg = int(color)
+        else:
+            self.log(f"todo: color256 {g}")
 
     def ansi_move_up(self, g):
         # FIXME: get rows optionally grom g[0]?
@@ -556,7 +560,7 @@ class ClashTerminal:
         ansi = {
                 r"\[(\d+)[mM]": self.ansi_color,
                 r"\[(\d+);(\d+)m": self.ansi_color,
-                r"\[[34]8;5;(\d+)m": self.ansi_color256,
+                r"\[([34]8);5;(\d+)m": self.ansi_color256,
                 r"\[(\d+);(\d+)H": self.ansi_position,
                 r"\[(\d+)H": self.ansi_position,
                 r"(\[4l)": self.ansi_unhandled,  # ReSet insert mode.
