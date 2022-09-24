@@ -109,7 +109,7 @@ class ClashMaster:
             await self.ws.send_str(json.dumps(msg))
         elif "input" in data:
             data = base64.b64decode(data.get("input"))
-            self.shell.p_out.write(data)
+            self.shell.write(data)
 
     async def run_master_worker(self, loop):
         self.master_worker = loop.create_future()
@@ -133,7 +133,7 @@ class ClashMaster:
         asyncio.create_task(worker())
 
     async def handle_stdin(self, data):
-        self.shell.p_out.write(data)
+        self.shell.write(data)
 
     async def handle_terminal(self, data):
         if not data:

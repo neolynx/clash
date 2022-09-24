@@ -66,3 +66,9 @@ class ClashShell:
 
         self.shell_pid = p_pid
         self.p_out = p_out
+
+    def write(self, data):
+        try:
+            self.p_out.write(data)
+        except Exception:
+            self.up = False

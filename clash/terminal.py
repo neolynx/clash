@@ -10,8 +10,9 @@ terminal = None
 
 class ClashTerminal:
 
-    def __init__(self, log=None):
+    def __init__(self, log=None, shell_input=None):
         self.log = log
+        self.shell_input = shell_input
         self.remainder = ""
         self.flags = 0
         self.col = 0
@@ -262,6 +263,7 @@ class ClashTerminal:
     def ansi_color256(self, g):
         self.log(f"clr256: {g}")
         self.set_color256(int(g[0]))
+
     def ansi_move_up(self, g):
         # FIXME: get rows optionally grom g[0]?
         rows = 1
@@ -454,7 +456,8 @@ class ClashTerminal:
                 pass
 
         if code == 6:  # get cursoe pos
-            self.p_out.write(f"\x1b[{self.col};{self.row}R".encode())  # ^[<v>;<h>R
+            if self.shell_input:
+                self.shell_input(f"\x1b[{self.col};{self.row}R".encode())  # ^[<v>;<h>R
         else:
             self.log(f"todo: report code {code}")
 
