@@ -35,6 +35,7 @@ setup(
     keywords=[
         'psutil',
         'aiohttp',
+        'click',
     ],
     classifiers=[
         'Programming Language :: Python',

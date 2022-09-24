@@ -3,6 +3,7 @@
 import sys
 import asyncio
 import os
+import click
 
 from .master import ClashMaster
 from .slave import ClashSlave
@@ -18,10 +19,18 @@ def log(msg):
         logfile.flush()
 
 
-def main():
+def nolog(_):
+    pass
+
+
+@click.command()
+@click.option('--debug', '-d', is_flag=True, help='debug')
+@click.argument('session', required=False)
+def main(debug, session):
     global logfile
     loop = asyncio.get_event_loop()
     url = "http://localhost:8080/clash"
+
     try:
         configfile = open(f"{os.path.expanduser('~')}/.clashrc", "r")
         for line in configfile.readlines():
@@ -34,13 +43,19 @@ def main():
     except Exception:
         pass
 
-    if len(sys.argv) > 1:
-        logfile = open("log-slave.txt", "w+")
-        slave = ClashSlave(log=log, url=url)
-        loop.run_until_complete(slave.run(sys.argv[1]))
+    logger = nolog
+    if debug:
+        logger = log
+        if session:
+            logfile = open("log-slave.txt", "w+")
+        else:
+            logfile = open("log-master.txt", "w+")
+
+    if session:
+        slave = ClashSlave(log=logger, url=url)
+        loop.run_until_complete(slave.run(session))
     else:
-        logfile = open("log-master.txt", "w+")
-        master = ClashMaster(log=log, url=url)
+        master = ClashMaster(log=logger, url=url)
         loop.run_until_complete(master.run())
 
 
