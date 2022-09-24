@@ -1,3 +1,18 @@
+clash (0.0.7) unstable; urgency=medium
+
+  * fix slave signals
+  * fix terminal to shell input
+  * parse 256colors
+  * use keywords in config file
+  * set HOME env var
+  * send ctrl-c only to foreground process
+  * implement insert chars
+  * fix ctrl-c
+  * fix erase
+  * cleanup
+
+ -- André Roth <neolynx@gmail.com>  Sat, 24 Sep 2022 19:07:37 +0200
+
 clash (0.0.6) unstable; urgency=medium
 
   * implement dec blinking cursor flag
