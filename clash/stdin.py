@@ -14,21 +14,22 @@ class ClashStdin:
         self.up = True
 
     async def start(self, stdin_handler):
-        self.old_settings = termios.tcgetattr(sys.stdin)
-        new_settings = termios.tcgetattr(sys.stdin)
-        new_settings[3] = new_settings[3] & ~(termios.ECHO | termios.ICANON)  # lflags
-        new_settings[6][termios.VMIN] = 0   # cc
-        new_settings[6][termios.VTIME] = 0  # cc
-        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, new_settings)
-
-        # set sys.stdin non-blocking
-        orig_fl = fcntl.fcntl(sys.stdin, fcntl.F_GETFL)
-        fcntl.fcntl(sys.stdin, fcntl.F_SETFL, orig_fl | os.O_NONBLOCK)
-
-        async def handler(newloop):
+        async def handler():
+            self.log("stdin: handler started")
             self.reader = asyncio.StreamReader()
-            self.protocol = asyncio.StreamReaderProtocol(self.reader)
-            await newloop.connect_read_pipe(lambda: self.protocol, sys.stdin)
+            protocol = asyncio.StreamReaderProtocol(self.reader)
+            await asyncio.get_running_loop().connect_read_pipe(lambda: protocol, sys.stdin)
+
+            self.old_settings = termios.tcgetattr(sys.stdin)
+            new_settings = termios.tcgetattr(sys.stdin)
+            new_settings[3] = new_settings[3] & ~(termios.ECHO | termios.ICANON)  # lflags
+            new_settings[6][termios.VMIN] = 0   # cc
+            new_settings[6][termios.VTIME] = 0  # cc
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, new_settings)
+
+            # set sys.stdin non-blocking
+            orig_fl = fcntl.fcntl(sys.stdin, fcntl.F_GETFL)
+            fcntl.fcntl(sys.stdin, fcntl.F_SETFL, orig_fl | os.O_NONBLOCK)
 
             while self.up:
                 data = await self.reader.read(1024)
@@ -37,22 +38,21 @@ class ClashStdin:
                     break
                 await stdin_handler(data)
 
-        def thread_wrapper():
-            try:
-                newloop = asyncio.new_event_loop()
-                asyncio.set_event_loop(newloop)
-                self.task = newloop.create_task(handler(newloop))
-                newloop.run_until_complete(self.task)
-            except Exception as exc:
-                self.log(f"stdin: {exc}")
+            self.log(f"stdin: handler done")
 
         loop = asyncio.get_event_loop()
-        loop.run_in_executor(None, thread_wrapper)
+        self.task = loop.create_task(handler())
 
-    def stop(self):
+        self.log(f"stdin: start done")
+
+    async def stop(self):
         self.log("stdin: terminating...")
         self.up = False
         self.task.cancel()
+        try:
+            await self.task
+        except asyncio.CancelledError:
+            pass
         if self.old_settings:
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.old_settings)
         self.log("stdin: terminated")

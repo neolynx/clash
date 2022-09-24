@@ -82,7 +82,7 @@ class ClashMaster:
             await asyncio.sleep(1)
 
         self.log("stdin: stopping...")
-        self.stdin.stop()
+        await self.stdin.stop()
         self.log("master: stopping...")
         await self.stop_master_worker()
         self.log("terminal: stopping...")
