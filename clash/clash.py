@@ -24,7 +24,13 @@ def main():
     url = "http://localhost:8080/clash"
     try:
         configfile = open(f"{os.path.expanduser('~')}/.clashrc", "r")
-        url = configfile.readline().strip()
+        for line in configfile.readlines():
+            if line.startswith("SERVER"):
+                vals = line.split("=")
+                if len(vals) < 2:
+                    print("Please specify SERVER = http://... in ~/.clashrc")
+                    sys.exit(1)
+                url = vals[1].strip()
     except Exception:
         pass
 
