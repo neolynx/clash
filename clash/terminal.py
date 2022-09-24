@@ -228,6 +228,9 @@ class ClashTerminal:
             elif param == 49:
                 self.color_bg = -1
 
+    def set_color256(self, color):
+        self.log(f"todo: color {color}")
+
     def get_color(self):
 
         if self.color_fg == -1 and self.color_bg == -1:
@@ -253,8 +256,12 @@ class ClashTerminal:
         self.flags = 0
 
     def ansi_color(self, g):
+        self.log(f"clr: {g}")
         self.set_color([int(x) for x in g])
 
+    def ansi_color256(self, g):
+        self.log(f"clr256: {g}")
+        self.set_color256(int(g[0]))
     def ansi_move_up(self, g):
         # FIXME: get rows optionally grom g[0]?
         rows = 1
@@ -546,7 +553,7 @@ class ClashTerminal:
         ansi = {
                 r"\[(\d+)[mM]": self.ansi_color,
                 r"\[(\d+);(\d+)m": self.ansi_color,
-                r"\[(\d+);(\d+);(\d+)m": self.ansi_color,
+                r"\[[34]8;5;(\d+)m": self.ansi_color256,
                 r"\[(\d+);(\d+)H": self.ansi_position,
                 r"\[(\d+)H": self.ansi_position,
                 r"(\[4l)": self.ansi_unhandled,  # ReSet insert mode.
