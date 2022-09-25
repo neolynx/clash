@@ -1,3 +1,9 @@
+clash (0.0.10) unstable; urgency=medium
+
+  * fix insert lines
+
+ -- André Roth <neolynx@gmail.com>  Sun, 25 Sep 2022 13:36:14 +0200
+
 clash (0.0.9) unstable; urgency=medium
 
   * simplify esc seq regex
