@@ -391,7 +391,7 @@ class ClashTerminal:
 
         elif variant == "K":  # erase with different behavior
             if param == "" or int(param) == 0:  # erase from cursor to end of line
-                length = self.width - self.col - 1
+                length = self.width - self.col
                 start = self.col
             elif int(param) == 1:                 # erase start of line to the cursor
                 length = self.col
