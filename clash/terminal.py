@@ -594,6 +594,7 @@ class ClashTerminal:
                 r"\[([34]8);5;(\d+)m": self.ansi_color256,
                 r"\[m": self.ansi_reset_color,
 
+                r"(\d)": self.ansi_unhandled,
                 r"\[(\d+);(\d+)H": self.ansi_position,
                 r"\[(\d+)H": self.ansi_position,
                 r"(\[4l)": self.ansi_unhandled,  # ReSet insert mode.
@@ -605,7 +606,7 @@ class ClashTerminal:
                 r"\[(\d+)d": self.ansi_move_row,
                 r"\[\?(\d+)([hl])": self.dec_private_modes,
                 r"\[(\d*)([XK])": self.ansi_erase_line,
-                r"(\[(\d+)A)": self.ansi_unhandled,  # move cursor up
+                r"(\[(\d*)A)": self.ansi_unhandled,  # move cursor up
                 r"\[(\d+)G": self.ansi_position_col,
                 r"\[(\d+)M": self.ansi_append_lines,
                 r"\[(\d*)L": self.ansi_insert_lines,
