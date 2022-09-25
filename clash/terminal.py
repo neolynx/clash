@@ -115,14 +115,12 @@ class ClashTerminal:
                         self.col += 8
                         self.screen.move(self.row, self.col)
                 elif code == 10:  # LF
+                    self.log("chr: LF")
                     self.linefeed()
-                    self.screen.move(self.row, self.col)
                 elif code == 13:  # CR
+                    self.log("chr: CR")
                     self.col = 0
-                    try:
-                        self.screen.move(self.row, self.col)
-                    except Exception:
-                        self.log("err: CR move down")
+                    self.screen.move(self.row, self.col)
                 elif code == 15:  # reset font ??
                     self.flags = 0
                     self.color_fg = -1
@@ -481,13 +479,30 @@ class ClashTerminal:
     def ansi_set_margin(self, g):
         self.margin_top = int(g[0]) - 1
         self.margin_bottom = int(g[1]) - 1
+        # FIXME: check negative
         self.screen.setscrreg(self.margin_top, self.margin_bottom)
-        self.log(f"todo: scroll margin: move cursor")
+        self.row = self.margin_top
+        self.col = 0
+        self.screen.move(self.row, self.col)
         self.log(f"scroll margin: {self.margin_top} {self.margin_bottom}")
 
     def ansi_scroll_up(self, g):
         rows = int(g[0])
         self.log(f"todo: scroll up: {rows}")
+
+    def ansi_append_lines(self, g):
+        count = int(g[0])
+        self.log(f"pos: append {count} lines")
+        row_old = self.row
+        col_old = self.col
+        self.row = self.margin_bottom - 1
+        self.col = 0
+        self.screen.move(self.row, self.col)
+        for _ in range(count):
+            self.linefeed()
+        self.row = row_old
+        self.col = col_old
+        self.screen.move(self.row, self.col)
 
     def ansi_keypad(self, g):
         keypad = g[0]
@@ -568,7 +583,7 @@ class ClashTerminal:
         # https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
 
         ansi = {
-                r"\[(\d+)[mM]": self.ansi_color,
+                r"\[(\d+)[m]": self.ansi_color,
                 r"\[(\d+);(\d+)m": self.ansi_color,
                 r"\[([34]8);5;(\d+)m": self.ansi_color256,
                 r"\[(\d+);(\d+)H": self.ansi_position,
@@ -586,7 +601,7 @@ class ClashTerminal:
                 r"\[(\d*)([XK])": self.ansi_erase_line,
                 r"(\[(\d+)A)": self.ansi_unhandled,  # move cursor up
                 r"\[(\d+)G": self.ansi_position_col,
-                r"(\[(\d+)M)": self.ansi_unhandled,
+                r"\[(\d+)M": self.ansi_append_lines,
                 r"\[(\d*)L": self.ansi_insert_lines,
                 r"(\[(\d*)J)": self.ansi_erase,
                 r"(\[(\d+)P)": self.ansi_delete_chars,  # delete n chars from pos
