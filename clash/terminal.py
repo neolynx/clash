@@ -335,25 +335,22 @@ class ClashTerminal:
         self.log(f"pos: {self.row} {self.col}")
 
     def ansi_insert_lines(self, g):
-        count = g[0]
-        blank = " " * self.width
-        self.col = 0
+        if g[0] == "":
+            count = 1
+        else:
+            count = int(g[0])
 
         self.log(f"ins: {count} lines")
-        if self.row == 0:  # first row scroll up
+        blank = " " * self.width
+        for _ in range(count):
             self.log("scroll down")
             self.screen.scrollok(True)
             self.screen.scroll(-1)
             self.screen.scrollok(False)
-
-        for i in count:
-            self.row += 1
             try:
                 self.screen.addstr(self.row, 0, blank, self.get_color())
             except Exception:
                 self.log(f"err: {self.row} 0 ' ' * {self.width}")
-
-        self.screen.move(self.row, self.col)
 
     def ansi_position(self, g):
         if len(g) > 1:
