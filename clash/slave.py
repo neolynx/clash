@@ -25,9 +25,7 @@ class ClashSlave:
     async def run(self, session_id):
 
         def sig_handler(signame, queue):
-            self.log(f"sig: {signame}")
             queue.put_nowait(signame)
-            self.log(f"queued sig: {signame}")
 
         loop = asyncio.get_event_loop()
         for signame in {'SIGINT', 'SIGTERM', 'SIGTSTP', 'SIGCONT'}:
@@ -38,12 +36,10 @@ class ClashSlave:
             while True:
                 sig = await self.signal_queue.get()
                 d = json.dumps({"signal": sig})
-                self.log(f"sending sig: {d}")
                 await self.ws.send_str(d)
 
         asyncio.create_task(signal_worker())
 
-        print("Connecting to server ...")
         if not await self.init_slave_connection(session_id):
             print("connection failed")
             return
@@ -68,19 +64,17 @@ class ClashSlave:
         self.log("terminal: stopping...")
         self.terminal.stop()
         self.log("clash: terminated")
-        print("terminated.\n")
+        print("[exited]")
 
     async def init_slave_connection(self, session_id):
         url = f"{self.url}/{session_id}"
         self.master_session = aiohttp.ClientSession()
-        print(f"slave: connecting to {url}")
         try:
             self.ws = await self.master_session.ws_connect(url)
         except Exception as exc:
             await self.master_session.close()
             print(exc)
             return False
-        print("slave: connected")
         return True
 
     async def run_slave_worker(self, loop):
