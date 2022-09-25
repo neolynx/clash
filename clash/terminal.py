@@ -61,7 +61,7 @@ class ClashTerminal:
         if self.row < self.margin_bottom - 1:
             self.row += 1
             self.log(f"pos: linefeed {self.row}")
-            self.screen.move(self.row, self.col)
+            self.move(self.row, self.col)
         else:
             self.log("pos: scroll up")
             # firstline = []
@@ -105,7 +105,7 @@ class ClashTerminal:
                 elif code == 8:  # BS
                     if self.col > 0:
                         self.col -= 1
-                        self.screen.move(self.row, self.col)
+                        self.move(self.row, self.col)
                 elif code == 9:  # Tab
                     if self.col < self.width - 8:
                         try:
@@ -113,14 +113,14 @@ class ClashTerminal:
                         except Exception:
                             self.log(f"err: {self.row} {self.col} '        ")
                         self.col += 8
-                        self.screen.move(self.row, self.col)
+                        self.move(self.row, self.col)
                 elif code == 10:  # LF
                     self.log("chr: LF")
                     self.linefeed()
                 elif code == 13:  # CR
                     self.log("chr: CR")
                     self.col = 0
-                    self.screen.move(self.row, self.col)
+                    self.move(self.row, self.col)
                 elif code == 15:  # reset font ??
                     self.flags = 0
                     self.color_fg = -1
@@ -250,7 +250,7 @@ class ClashTerminal:
         return curses.color_pair(idx) | self.flags
 
     def ansi_unhandled(self, g):
-        self.log(f"todo: {g[0]}")
+        self.log(f"todo: esc seq '\\x1b{g[0]}'")
 
     def ansi_reset_color(self, g):
         self.color_fg = -1
@@ -280,7 +280,7 @@ class ClashTerminal:
         self.row -= int(rows) - 1
         if self.row < 0:
             self.row = 0
-        self.screen.move(self.row, self.col)
+        self.move(self.row, self.col)
 
     def insert_chars(self, g):
         num = 1
@@ -309,7 +309,7 @@ class ClashTerminal:
             ch = self.screen.inch(self.row, c)
             self.screen.addch(self.row, c - num, ch)
         self.screen.addstr(self.row, self.col + num, " " * (self.width - num + self.col), self.get_color())
-        self.screen.move(self.row, self.col)
+        self.move(self.row, self.col)
 
     def ansi_move_right(self, g):
         cols = 1
@@ -320,18 +320,18 @@ class ClashTerminal:
                 pass
         self.log(f"mov: right {cols} from {self.col}")
         self.col += cols
-        self.screen.move(self.row, self.col)
+        self.move(self.row, self.col)
 
     def ansi_move_row(self, g):
         row = g[0]
         self.row = int(row) - 1
         self.log(f"row: {self.row}")
-        self.screen.move(self.row, self.col)
+        self.move(self.row, self.col)
 
     def ansi_position_col(self, g):
         col = g[0]
         self.col = int(col) - 1
-        self.screen.move(self.row, self.col)
+        self.move(self.row, self.col)
         self.log(f"pos: {self.row} {self.col}")
 
     def ansi_insert_lines(self, g):
@@ -362,7 +362,7 @@ class ClashTerminal:
             self.col = int(col) - 1
         self.log(f"pos: {self.row} {self.col}")
         try:
-            self.screen.move(self.row, self.col)
+            self.move(self.row, self.col)
         except Exception:
             self.log(f"err: move {self.row} {self.col}")
 
@@ -370,7 +370,7 @@ class ClashTerminal:
         self.row = 0
         self.col = 0
         self.log(f"pos: {self.row} {self.col}")
-        self.screen.move(self.row, self.col)
+        self.move(self.row, self.col)
 
     def ansi_erase_line(self, g):
         self.log(f"erase line {g}")
@@ -404,7 +404,7 @@ class ClashTerminal:
         try:
             # FIXME: should not move cursor, just will text
             self.screen.addstr(self.row, start, blank, self.get_color())
-            self.screen.move(self.row, self.col)
+            self.move(self.row, self.col)
         except Exception:
             self.log(f"err: {self.row} {start} ' ' * {length}")
 
@@ -421,7 +421,7 @@ class ClashTerminal:
             elif g[1] == "2":  # 2J: erase entire screen
                 self.row = 0
                 self.col = 0
-                self.screen.move(self.row, self.col)
+                self.move(self.row, self.col)
                 blank = " " * self.width
                 for r in range(self.row, self.height - 1):
                     try:
@@ -477,10 +477,13 @@ class ClashTerminal:
         self.margin_top = int(g[0]) - 1
         self.margin_bottom = int(g[1]) - 1
         # FIXME: check negative
-        self.screen.setscrreg(self.margin_top, self.margin_bottom)
+        try:
+            self.screen.setscrreg(self.margin_top, self.margin_bottom)
+        except Exception:
+            pass
         self.row = self.margin_top
         self.col = 0
-        self.screen.move(self.row, self.col)
+        self.move(self.row, self.col)
         self.log(f"scroll margin: {self.margin_top} {self.margin_bottom}")
 
     def ansi_scroll_up(self, g):
@@ -494,12 +497,12 @@ class ClashTerminal:
         col_old = self.col
         self.row = self.margin_bottom - 1
         self.col = 0
-        self.screen.move(self.row, self.col)
+        self.move(self.row, self.col)
         for _ in range(count):
             self.linefeed()
         self.row = row_old
         self.col = col_old
-        self.screen.move(self.row, self.col)
+        self.move(self.row, self.col)
 
     def ansi_keypad(self, g):
         keypad = g[0]
@@ -563,7 +566,7 @@ class ClashTerminal:
                 self.savedbuffer = []
                 self.col = self.savedcol
                 self.row = self.savedrow
-                self.screen.move(self.row, self.col)
+                self.move(self.row, self.col)
 
         elif opt == 2004:
             self.log(f"todo: dec: Set bracketed paste mode {val}")
@@ -688,3 +691,9 @@ class ClashTerminal:
         self.height, self.width, _, _ = struct.unpack('HHHH', fcntl.ioctl(0, termios.TIOCGWINSZ,
                                                       struct.pack('HHHH', 0, 0, 0, 0)))
         return self.width, self.height
+
+    def move(self, row, col):
+        try:
+            self.screen.move(row, col)
+        except Exception:
+            pass
