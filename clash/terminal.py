@@ -34,6 +34,7 @@ class ClashTerminal:
         curses.nl()
         self.screen.keypad(1)
         self.screen.scrollok(False)
+        # curses.mousemask(curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION)
         self.screen.refresh()
         self.height, self.width = self.screen.getmaxyx()
         self.margin_top = 0
@@ -59,9 +60,10 @@ class ClashTerminal:
     def linefeed(self):
         if self.row < self.margin_bottom - 1:
             self.row += 1
+            self.log(f"pos: linefeed {self.row}")
             self.screen.move(self.row, self.col)
         else:
-            self.log("scroll up")
+            self.log("pos: scroll up")
             # firstline = []
             # for col in range(0, self.width):
             #     c = self.screen.inch(0, col)
@@ -74,7 +76,7 @@ class ClashTerminal:
 
     def puttext(self, text):
         color = self.get_color()
-        self.log(f"put: {text}")
+        self.log(f"put: {self.row}x{self.col}: {text}")
         length = len(text)
         if self.col + length > self.width:
             self.log(f"err: truncating {length} to {self.width - self.col - 1} rest: {bytes(text[self.width - self.col - 1:].encode())}")
@@ -274,6 +276,7 @@ class ClashTerminal:
 
     def ansi_move_up(self, g):
         # FIXME: get rows optionally grom g[0]?
+        self.log(f"todo: mov up {g}")
         rows = 1
         self.log(f"mov: up {rows} from {self.row}")
         self.row -= int(rows) - 1
@@ -338,6 +341,7 @@ class ClashTerminal:
         blank = " " * self.width
         self.col = 0
 
+        self.log(f"ins: {count} lines")
         if self.row == 0:  # first row scroll up
             self.log("scroll down")
             self.screen.scrollok(True)
@@ -370,6 +374,7 @@ class ClashTerminal:
     def ansi_pos_home(self, g):
         self.row = 0
         self.col = 0
+        self.log(f"pos: {self.row} {self.col}")
         self.screen.move(self.row, self.col)
 
     def ansi_erase_line(self, g):
@@ -409,6 +414,7 @@ class ClashTerminal:
             self.log(f"err: {self.row} {start} ' ' * {length}")
 
     def ansi_erase(self, g):
+        self.log(f"erase screen {g}")
 
         if len(g) > 1:
             if g[1] == "0" or g[1] == "":  # J / 0J: erase from cursor until end of screen
