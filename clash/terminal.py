@@ -452,10 +452,10 @@ class ClashTerminal:
                 except Exception:
                     self.log(f"err: {r} 0 ' ' * {self.width}")
 
-    def ansi_hide_cursor(self, g):
+    def ansi_hide_cursor(self, *g):
         curses.curs_set(0)
 
-    def ansi_show_cursor(self, g):
+    def ansi_show_cursor(self, *g):
         curses.curs_set(1)
 
     def ansi_report(self, g):
@@ -536,6 +536,12 @@ class ClashTerminal:
         elif opt == 12:
             self.dec_blinking_cursor = val
 
+        elif opt == 25:
+            if val:
+                self.ansi_show_cursor()
+            else:
+                self.ansi_hide_cursor()
+
         elif opt == 1000:
             self.log(f"todo: dec: X11 mouse {val}")
 
@@ -586,11 +592,11 @@ class ClashTerminal:
                 r"\[(\d+)[m]": self.ansi_color,
                 r"\[(\d+);(\d+)m": self.ansi_color,
                 r"\[([34]8);5;(\d+)m": self.ansi_color256,
+                r"\[m": self.ansi_reset_color,
+
                 r"\[(\d+);(\d+)H": self.ansi_position,
                 r"\[(\d+)H": self.ansi_position,
                 r"(\[4l)": self.ansi_unhandled,  # ReSet insert mode.
-                r"\[\?25l": self.ansi_hide_cursor,
-                r"\[\?25h": self.ansi_show_cursor,
                 r"\[\?1c": self.ansi_hide_cursor,
                 r"\[\?0c": self.ansi_show_cursor,
                 r"(\)0)": self.ansi_unhandled,  # )0 Start / (0 Select VT100 graphics mapping
@@ -608,7 +614,6 @@ class ClashTerminal:
                 r"\[(\d*)C": self.ansi_move_right,
                 r"\[H": self.ansi_pos_home,
                 r"M": self.ansi_move_up,   # https://www.aivosto.com/articles/control-characters.html
-                r"\[m": self.ansi_reset_color,
                 r"(\[?1000l)": self.ansi_unhandled,  # X11 Mouse Reporting
                 r"(c)": self.ansi_unhandled,  # Reset
                 r"(\]R)": self.ansi_unhandled,  # Reset Palette
