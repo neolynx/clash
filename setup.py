@@ -36,6 +36,7 @@ setup(
         'psutil',
         'aiohttp',
         'click',
+        'setproctitle',
     ],
     classifiers=[
         'Programming Language :: Python',

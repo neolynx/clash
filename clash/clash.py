@@ -4,6 +4,7 @@ import sys
 import asyncio
 import os
 import click
+import setproctitle
 
 from .master import ClashMaster
 from .slave import ClashSlave
@@ -52,9 +53,11 @@ def main(debug, session):
             logfile = open("log-master.txt", "w+")
 
     if session:
+        setproctitle.setproctitle("clash slave session")  # hide session id
         slave = ClashSlave(log=logger, url=url)
         loop.run_until_complete(slave.run(session))
     else:
+        setproctitle.setproctitle("clash master session")
         master = ClashMaster(log=logger, url=url)
         loop.run_until_complete(master.run())
 
