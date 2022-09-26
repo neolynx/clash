@@ -24,6 +24,7 @@ class ClashTerminal:
         self.color_bg = -1
         self.dec_blinking_cursor = True
         self.colors = {}
+        self.charset_lines = False
 
     def start(self):
         self.screen = curses.initscr()
@@ -81,6 +82,19 @@ class ClashTerminal:
         if self.col + length > self.width:
             self.log(f"err: truncating {length} to {self.width - self.col - 1} rest: {bytes(text[self.width - self.col - 1:].encode())}")
             length = self.width - self.col - 1
+
+        if self.charset_lines:
+            map_linechar_utf8 = {
+                    "l": "┌",
+                    "x": "│",
+                    "j": "┘",
+                    "q": "─",
+                    "k": "┐",
+                    "m": "└",
+                    }
+            for k in map_linechar_utf8:
+                text = text.replace(k, map_linechar_utf8[k])
+
         try:
             self.screen.addstr(self.row, self.col, text[:length], color)
         except Exception:
@@ -512,7 +526,12 @@ class ClashTerminal:
             self.log(f"todo: numkeypad mode")
 
     def ansi_charset(self, g):
-        self.log(f"todo: Set United States G0 character set")
+        self.log(f"todo: character set {g[0]}")
+        # 0 = DEC Special Character and Line Drawing Set, VT100.
+        if g[0] == "0":
+            self.charset_lines = True
+        else:
+            self.charset_lines = False
 
     def dec_private_modes(self, g):
         opt = g[0]
@@ -629,7 +648,7 @@ class ClashTerminal:
                 r"(\[?2004h)": self.ansi_unhandled,
                 r"(=)": self.ansi_keypad,
                 r"(>)": self.ansi_keypad,
-                r"(\(B)": self.ansi_charset,
+                r"\((.)": self.ansi_charset,
                 r"(\](\d+)\x07)": self.ansi_unhandled,
                 r"(\[!p)": self.ansi_unhandled,
                 r"(\[\?(\d);(\d)l)": self.ansi_unhandled,
