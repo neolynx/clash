@@ -1,3 +1,9 @@
+clash (0.0.15) unstable; urgency=medium
+
+  * use virtual columns and rows
+
+ -- André Roth <neolynx@gmail.com>  Tue, 27 Sep 2022 23:31:13 +0200
+
 clash (0.0.14) unstable; urgency=medium
 
   * use virtual terminal size
