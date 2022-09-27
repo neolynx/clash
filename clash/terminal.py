@@ -4,9 +4,6 @@ import curses
 import curses.panel
 import re
 import traceback
-import struct
-import fcntl
-import termios
 
 terminal = None
 
@@ -37,6 +34,7 @@ class ClashTerminal:
         else:
             self.cols = cols
             self.rows = rows
+        self.log(f"terminal: starting {self.cols}x{self.rows} ({self.width} {self.height})")
         self.pad = curses.newpad(self.rows, self.cols)
 
         curses.noecho()
@@ -48,7 +46,7 @@ class ClashTerminal:
         # curses.mousemask(curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION)
         self.refresh()
         self.margin_top = 0
-        self.margin_bottom = self.height
+        self.margin_bottom = self.rows
 
         curses.start_color()
         curses.use_default_colors()
@@ -88,9 +86,9 @@ class ClashTerminal:
         color = self.get_color()
         self.log(f"put: {self.row}x{self.col}: {text}")
         length = len(text)
-        if self.col + length > self.width:
-            self.log(f"err: truncating {length} to {self.width - self.col - 1} rest: {bytes(text[self.width - self.col - 1:].encode())}")
-            length = self.width - self.col - 1
+        if self.col + length > self.cols:
+            self.log(f"err: truncating {length} to {self.cols - self.col - 1} rest: {bytes(text[self.cols - self.col - 1:].encode())}")
+            length = self.cols - self.col - 1
 
         if self.charset_lines:
             map_linechar_utf8 = {
@@ -130,7 +128,7 @@ class ClashTerminal:
                         self.col -= 1
                         self.move(self.row, self.col)
                 elif code == 9:  # Tab
-                    if self.col < self.width - 8:
+                    if self.col < self.cols - 8:
                         try:
                             self.pad.addstr(self.row, self.col, "        ", self.get_color())
                         except Exception:
@@ -313,7 +311,7 @@ class ClashTerminal:
             except Exception:
                 pass
         self.log(f"ins: insert {num} chars at {self.col}")
-        for c in range(self.width - 1, self.col + num - 1, -1):
+        for c in range(self.cols - 1, self.col + num - 1, -1):
             ch = self.pad.inch(self.row, c - num)
             self.pad.addch(self.row, c, ch)
         self.pad.addstr(self.row, self.col, " " * num, self.get_color())
@@ -325,13 +323,13 @@ class ClashTerminal:
                 num = int(g[1])
             except Exception:
                 pass
-        if self.col + num > self.width:
-            num = self.width - self.col
+        if self.col + num > self.cols:
+            num = self.cols - self.col
         self.log(f"era: erase {num} chars from {self.col}")
-        for c in range(self.col + num, self.width):
+        for c in range(self.col + num, self.cols):
             ch = self.pad.inch(self.row, c)
             self.pad.addch(self.row, c - num, ch)
-        self.pad.addstr(self.row, self.col + num, " " * (self.width - num + self.col), self.get_color())
+        self.pad.addstr(self.row, self.col + num, " " * (self.cols - num + self.col), self.get_color())
         self.move(self.row, self.col)
 
     def ansi_move_right(self, g):
@@ -364,7 +362,7 @@ class ClashTerminal:
             count = int(g[0])
 
         self.log(f"ins: {count} lines")
-        blank = " " * self.width
+        blank = " " * self.cols
         for _ in range(count):
             self.log("scroll down")
             self.pad.scrollok(True)
@@ -373,7 +371,7 @@ class ClashTerminal:
             try:
                 self.pad.addstr(self.row, 0, blank, self.get_color())
             except Exception:
-                self.log(f"err: {self.row} 0 ' ' * {self.width}")
+                self.log(f"err: {self.row} 0 ' ' * {self.cols}")
 
     def ansi_position(self, g):
         if len(g) > 1:
@@ -409,18 +407,18 @@ class ClashTerminal:
             if param is not None:
                 length = int(param)
             else:
-                length = self.width - self.col
+                length = self.cols - self.col
             start = self.col
 
         elif variant == "K":  # erase with different behavior
             if param == "" or int(param) == 0:  # erase from cursor to end of line
-                length = self.width - self.col
+                length = self.cols - self.col
                 start = self.col
             elif int(param) == 1:                 # erase start of line to the cursor
                 length = self.col
                 start = 0
             elif int(param) == 2:                 # erase the entire line
-                length = self.width
+                length = self.cols
                 start = 0
 
         blank = " " * length
@@ -445,12 +443,12 @@ class ClashTerminal:
                 self.row = 0
                 self.col = 0
                 self.move(self.row, self.col)
-                blank = " " * self.width
-                for r in range(self.row, self.height - 1):
+                blank = " " * self.cols
+                for r in range(self.row, self.rows - 1):
                     try:
                         self.pad.addstr(r, 0, blank, self.get_color())
                     except Exception:
-                        self.log(f"err: {r} 0 ' ' * {self.width}")
+                        self.log(f"err: {r} 0 ' ' * {self.cols}")
 
             elif g[1] == "3":  # 3J: erase saved lines / scrollback
                 self.log(f"todo: erase scrollback")
@@ -459,18 +457,18 @@ class ClashTerminal:
                 self.log(f"todo: {g}")
 
         else:  # erase rest of line and screen
-            blank = " " * (self.width - self.col)
+            blank = " " * (self.cols - self.col)
             try:
                 self.pad.addstr(self.row, self.col, blank, self.get_color())
             except Exception:
-                self.log(f"err: {self.row} {self.col} ' ' * {self.width - self.col}")
+                self.log(f"err: {self.row} {self.col} ' ' * {self.cols - self.col}")
 
-            blank = " " * self.width
-            for r in range(self.row, self.height - 1):
+            blank = " " * self.cols
+            for r in range(self.row, self.rows - 1):
                 try:
                     self.pad.addstr(r, 0, blank, self.get_color())
                 except Exception:
-                    self.log(f"err: {r} 0 ' ' * {self.width}")
+                    self.log(f"err: {r} 0 ' ' * {self.cols}")
 
     def ansi_hide_cursor(self, *g):
         curses.curs_set(0)
@@ -579,14 +577,14 @@ class ClashTerminal:
                 self.savedcol = self.col
                 self.savedrow = self.row
                 self.savedbuffer = []
-                for row in range(0, self.height):
-                    for col in range(0, self.width):
+                for row in range(0, self.rows):
+                    for col in range(0, self.cols):
                         c = self.pad.inch(row, col)
                         self.savedbuffer.append(c)
             else:
-                for r in range(0, self.height):
-                    for c in range(0, self.width):
-                        ch = self.savedbuffer[r * self.width + c]
+                for r in range(0, self.rows):
+                    for c in range(0, self.cols):
+                        ch = self.savedbuffer[r * self.cols + c]
                         try:
                             self.pad.addch(r, c, ch)
                         except Exception as exc:
@@ -717,10 +715,17 @@ class ClashTerminal:
         self.refresh()
 
     def refresh(self):
-        self.pad.refresh(0, 0, 0, 0, self.height - 1, self.width - 1)
-
+        try:
+            self.pad.refresh(0, 0, 0, 0, self.height - 1, self.width - 1)
+        except Exception:
+            self.log(f"todo: err: pad.refresh")
 
     def move(self, row, col):
+        if row >= self.rows or col >= self.cols:
+            curses.curs_set(0)
+        else:  # FIXME: if was enabled before
+            curses.curs_set(1)
+
         try:
             self.pad.move(row, col)
         except Exception:
