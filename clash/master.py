@@ -110,17 +110,17 @@ class ClashMaster:
             self.session_ready.set_result(session_id)
         elif "init" in data:
             msg = {"screen": {
-                      "rows": self.terminal.height,
-                      "cols": self.terminal.width,
+                      "rows": self.terminal.rows,
+                      "cols": self.terminal.cols,
                       "col": self.terminal.col,
                       "row": self.terminal.row,
                       "color_fg": self.terminal.color_fg,
                       "color_bg": self.terminal.color_bg,
                       "color_flags": self.terminal.flags,
                       "dump": []}}
-            for row in range(0, self.terminal.height):
-                for col in range(0, self.terminal.width):
-                    c = self.terminal.screen.inch(row, col)
+            for row in range(0, self.terminal.rows):
+                for col in range(0, self.terminal.cols):
+                    c = self.terminal.pad.inch(row, col)
                     msg["screen"]["dump"].append(c)
             await self.ws.send_str(json.dumps(msg))
         elif "input" in data:

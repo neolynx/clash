@@ -18,6 +18,8 @@ class ClashTerminal:
         self.shell_input = shell_input
         self.remainder = ""
         self.flags = 0
+        self.cols = 0
+        self.rows = 0
         self.col = 0
         self.row = 0
         self.color_fg = -1
@@ -26,8 +28,16 @@ class ClashTerminal:
         self.colors = {}
         self.charset_lines = False
 
-    def start(self):
+    def start(self, cols=0, rows=0):
         self.screen = curses.initscr()
+        self.height, self.width = self.screen.getmaxyx()
+        if not rows or not cols:
+            self.rows = self.height
+            self.cols = self.width
+        else:
+            self.cols = cols
+            self.rows = rows
+        self.pad = curses.newpad(self.rows, self.cols)
 
         curses.noecho()
         curses.cbreak()
@@ -36,8 +46,7 @@ class ClashTerminal:
         self.screen.keypad(1)
         self.screen.scrollok(False)
         # curses.mousemask(curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION)
-        self.screen.refresh()
-        self.height, self.width = self.screen.getmaxyx()
+        self.refresh()
         self.margin_top = 0
         self.margin_bottom = self.height
 
@@ -48,7 +57,7 @@ class ClashTerminal:
             curses.endwin()
             raise Exception("Error: ncurses cannot change color! Please export TERM=xterm-256color")
 
-        return self.resize()
+        return self.cols, self.rows
 
     def stop(self):
         self.log("terminal: terminating...")
@@ -71,9 +80,9 @@ class ClashTerminal:
             #     firstline.append(c)
             # self.scrollback.append(firstline)
 
-            self.screen.scrollok(True)
-            self.screen.scroll()
-            self.screen.scrollok(False)
+            self.pad.scrollok(True)
+            self.pad.scroll()
+            self.pad.scrollok(False)
 
     def puttext(self, text):
         color = self.get_color()
@@ -96,7 +105,7 @@ class ClashTerminal:
                 text = text.replace(k, map_linechar_utf8[k])
 
         try:
-            self.screen.addstr(self.row, self.col, text[:length], color)
+            self.pad.addstr(self.row, self.col, text[:length], color)
         except Exception:
             self.log(f"err: {self.row} {self.col} {bytes(text.encode())}")
         self.col += length
@@ -123,7 +132,7 @@ class ClashTerminal:
                 elif code == 9:  # Tab
                     if self.col < self.width - 8:
                         try:
-                            self.screen.addstr(self.row, self.col, "        ", self.get_color())
+                            self.pad.addstr(self.row, self.col, "        ", self.get_color())
                         except Exception:
                             self.log(f"err: {self.row} {self.col} '        ")
                         self.col += 8
@@ -305,9 +314,9 @@ class ClashTerminal:
                 pass
         self.log(f"ins: insert {num} chars at {self.col}")
         for c in range(self.width - 1, self.col + num - 1, -1):
-            ch = self.screen.inch(self.row, c - num)
-            self.screen.addch(self.row, c, ch)
-        self.screen.addstr(self.row, self.col, " " * num, self.get_color())
+            ch = self.pad.inch(self.row, c - num)
+            self.pad.addch(self.row, c, ch)
+        self.pad.addstr(self.row, self.col, " " * num, self.get_color())
 
     def ansi_delete_chars(self, g):
         num = 1
@@ -320,9 +329,9 @@ class ClashTerminal:
             num = self.width - self.col
         self.log(f"era: erase {num} chars from {self.col}")
         for c in range(self.col + num, self.width):
-            ch = self.screen.inch(self.row, c)
-            self.screen.addch(self.row, c - num, ch)
-        self.screen.addstr(self.row, self.col + num, " " * (self.width - num + self.col), self.get_color())
+            ch = self.pad.inch(self.row, c)
+            self.pad.addch(self.row, c - num, ch)
+        self.pad.addstr(self.row, self.col + num, " " * (self.width - num + self.col), self.get_color())
         self.move(self.row, self.col)
 
     def ansi_move_right(self, g):
@@ -358,11 +367,11 @@ class ClashTerminal:
         blank = " " * self.width
         for _ in range(count):
             self.log("scroll down")
-            self.screen.scrollok(True)
-            self.screen.scroll(-1)
-            self.screen.scrollok(False)
+            self.pad.scrollok(True)
+            self.pad.scroll(-1)
+            self.pad.scrollok(False)
             try:
-                self.screen.addstr(self.row, 0, blank, self.get_color())
+                self.pad.addstr(self.row, 0, blank, self.get_color())
             except Exception:
                 self.log(f"err: {self.row} 0 ' ' * {self.width}")
 
@@ -417,7 +426,7 @@ class ClashTerminal:
         blank = " " * length
         try:
             # FIXME: should not move cursor, just will text
-            self.screen.addstr(self.row, start, blank, self.get_color())
+            self.pad.addstr(self.row, start, blank, self.get_color())
             self.move(self.row, self.col)
         except Exception:
             self.log(f"err: {self.row} {start} ' ' * {length}")
@@ -439,7 +448,7 @@ class ClashTerminal:
                 blank = " " * self.width
                 for r in range(self.row, self.height - 1):
                     try:
-                        self.screen.addstr(r, 0, blank, self.get_color())
+                        self.pad.addstr(r, 0, blank, self.get_color())
                     except Exception:
                         self.log(f"err: {r} 0 ' ' * {self.width}")
 
@@ -452,14 +461,14 @@ class ClashTerminal:
         else:  # erase rest of line and screen
             blank = " " * (self.width - self.col)
             try:
-                self.screen.addstr(self.row, self.col, blank, self.get_color())
+                self.pad.addstr(self.row, self.col, blank, self.get_color())
             except Exception:
                 self.log(f"err: {self.row} {self.col} ' ' * {self.width - self.col}")
 
             blank = " " * self.width
             for r in range(self.row, self.height - 1):
                 try:
-                    self.screen.addstr(r, 0, blank, self.get_color())
+                    self.pad.addstr(r, 0, blank, self.get_color())
                 except Exception:
                     self.log(f"err: {r} 0 ' ' * {self.width}")
 
@@ -485,14 +494,14 @@ class ClashTerminal:
             self.log(f"todo: report code {code}")
 
     def ansi_clear_screen(self, g):
-        self.screen.clear()
+        self.pad.clear()
 
     def ansi_set_margin(self, g):
         self.margin_top = int(g[0]) - 1
         self.margin_bottom = int(g[1]) - 1
         # FIXME: check negative
         try:
-            self.screen.setscrreg(self.margin_top, self.margin_bottom)
+            self.pad.setscrreg(self.margin_top, self.margin_bottom)
         except Exception:
             pass
         self.row = self.margin_top
@@ -572,14 +581,14 @@ class ClashTerminal:
                 self.savedbuffer = []
                 for row in range(0, self.height):
                     for col in range(0, self.width):
-                        c = self.screen.inch(row, col)
+                        c = self.pad.inch(row, col)
                         self.savedbuffer.append(c)
             else:
                 for r in range(0, self.height):
                     for c in range(0, self.width):
                         ch = self.savedbuffer[r * self.width + c]
                         try:
-                            self.screen.addch(r, c, ch)
+                            self.pad.addch(r, c, ch)
                         except Exception as exc:
                             self.log(f"todo: {exc} {r} {c} {ch}")
                 self.savedbuffer = []
@@ -705,15 +714,14 @@ class ClashTerminal:
 
     def input(self, data):
         self.addansi(self.row, self.col, data)
-        self.screen.refresh()
+        self.refresh()
 
-    def resize(self):
-        self.height, self.width, _, _ = struct.unpack('HHHH', fcntl.ioctl(0, termios.TIOCGWINSZ,
-                                                      struct.pack('HHHH', 0, 0, 0, 0)))
-        return self.width, self.height
+    def refresh(self):
+        self.pad.refresh(0, 0, 0, 0, self.height - 1, self.width - 1)
+
 
     def move(self, row, col):
         try:
-            self.screen.move(row, col)
+            self.pad.move(row, col)
         except Exception:
             pass

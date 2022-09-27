@@ -21,6 +21,8 @@ class ClashSlave:
         self.terminal = ClashTerminal(log=log)
         self.stdin = ClashStdin(log=log)
         self.signal_queue = asyncio.Queue()
+        loop = asyncio.get_event_loop()
+        self.screen_data_available = loop.create_future()
 
     async def run(self, session_id):
 
@@ -40,15 +42,20 @@ class ClashSlave:
 
         asyncio.create_task(signal_worker())
 
+        self.log("slave: starting")
         if not await self.init_slave_connection(session_id):
             print("connection failed")
             return
 
-        self.log("terminal: starting")
-        self.terminal.start()
-
-        self.log("master: starting")
+        self.log("slave: connected")
         await self.run_slave_worker(loop)
+
+        self.log("slave: wait for screen info")
+        await(self.screen_data_available)
+
+        self.log("terminal: starting")
+        self.terminal.start(self.cols, self.rows)
+        self.init_screen()
 
         self.log("stdin: starting")
         await self.stdin.start(self.handle_stdin)
@@ -78,7 +85,7 @@ class ClashSlave:
         return True
 
     async def run_slave_worker(self, loop):
-        self.slave_worker = loop.create_future()
+        self.slave_worker_done = loop.create_future()
 
         async def worker():
             while self.up:
@@ -95,43 +102,46 @@ class ClashSlave:
                     break
             self.up = False
             await self.ws.close()
-            self.slave_worker.set_result(True)
+            self.slave_worker_done.set_result(True)
         asyncio.create_task(worker())
 
     async def stop_slave_worker(self):
         self.up = False
-        return await(self.slave_worker)
+        return await(self.slave_worker_done)
 
     async def handle_slave_msg(self, msg):
         self.log("slave msg")
         data = json.loads(msg)
         if "screen" in data:
-            self.log("got screen info")
-            scrinit = data.get("screen")
-            self.log(f"slv: screen info {scrinit['cols']}x{scrinit['rows']}")
-            for r in range(0, scrinit['rows']):
-                for c in range(0, scrinit['cols']):
-                    ch = scrinit['dump'][r * scrinit['cols'] + c]
-                    try:
-                        self.terminal.screen.addch(r, c, ch)
-                    except Exception as exc:
-                        self.log(f"todo: {exc} {r} {c} {ch}")
-
-            self.terminal.color_fg = scrinit['color_fg']
-            self.terminal.color_bg = scrinit['color_bg']
-            self.terminal.color_flags = scrinit['color_flags']
-            self.terminal.col = scrinit['col']
-            self.terminal.row = scrinit['row']
-            self.log(f"mov: {self.terminal.row}, {self.terminal.col}")
-            self.terminal.screen.move(self.terminal.row, self.terminal.col)
-
-            self.terminal.screen.refresh()
+            self.scrinit = data.get("screen")
+            self.rows = self.scrinit['rows']
+            self.cols = self.scrinit['cols']
+            self.log(f"slv: screen info {self.scrinit['cols']}x{self.scrinit['rows']}")
+            self.screen_data_available.set_result(True)
         elif "output" in data:
             data = base64.b64decode(data.get("output"))
             self.terminal.input(data)
         elif "bye" in data:
             return False
         return True
+
+    def init_screen(self):
+        for r in range(0, self.scrinit['rows']):
+            for c in range(0, self.scrinit['cols']):
+                ch = self.scrinit['dump'][r * self.scrinit['cols'] + c]
+                try:
+                    self.terminal.pad.addch(r, c, ch)
+                except Exception as exc:
+                    self.log(f"todo: {exc} {r} {c} {ch}")
+
+        self.terminal.color_fg = self.scrinit['color_fg']
+        self.terminal.color_bg = self.scrinit['color_bg']
+        self.terminal.color_flags = self.scrinit['color_flags']
+        self.terminal.col = self.scrinit['col']
+        self.terminal.row = self.scrinit['row']
+        self.log(f"mov: {self.terminal.row}, {self.terminal.col}")
+        self.terminal.pad.move(self.terminal.row, self.terminal.col)
+        self.terminal.refresh()
 
     async def handle_stdin(self, data):
         await self.ws.send_str(json.dumps({"input": base64.b64encode(data).decode()}))

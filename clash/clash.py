@@ -53,11 +53,11 @@ def main(debug, session):
             logfile = open("log-master.txt", "w+")
 
     if session:
-        setproctitle.setproctitle("clash slave session")  # hide session id
+        setproctitle.setproctitle("clash")  # hide session id
         slave = ClashSlave(log=logger, url=url)
         loop.run_until_complete(slave.run(session))
     else:
-        setproctitle.setproctitle("clash master session")
+        setproctitle.setproctitle("clash")
         master = ClashMaster(log=logger, url=url)
         loop.run_until_complete(master.run())
 
