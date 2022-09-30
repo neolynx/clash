@@ -158,96 +158,77 @@ class ClashTerminal:
             self.puttext(text)
 
     def set_color(self, params):
-        # 0     	Reset or normal
-        # 1     	Bold or increased intensity
-        # 2     	Faint, decreased intensity, or dim
-        # 3     	Italic
-        # 4     	Underline
-        # 5     	Slow blink
-        # 6     	Rapid blink
-        # 7     	Reverse video or invert
-        # 8     	Conceal or hide
-        # 9     	Crossed-out, or strike
-        # 10     	Primary (default) font
-        # 11–19 	Alternative font
-        # 20     	Fraktur (Gothic)
-        # 21     	Doubly underlined; or: not bold
-        # 22     	Normal intensity
-        # 23     	Neither italic, nor blackletter
-        # 24     	Not underlined
-        # 25     	Not blinking
-        # 26     	Proportional spacing
-        # 27     	Not reversed
-        # 28     	Reveal
-        # 29     	Not crossed out
-        # 30–37 	Set foreground color
-        # 38    	Set foreground color
-        # 39    	Default foreground color
-        # 40–47 	Set background color
-        # 48 	    Set background color
-        # 49     	Default background color
-        # 50    	Disable proportional spacing
-        # 51    	Framed
-        # 52    	Encircled
-        # 53    	Overlined
-        # 54    	Neither framed nor encircled
-        # 55    	Not overlined
-        # 58    	Set underline color
-        # 59    	Default underline color
-        # 60    	Ideogram underline or right side line
-        # 61    	Ideogram double underline, or double line on the right side
-        # 62    	Ideogram overline or left side line
-        # 63    	Ideogram double overline, or double line on the left side
-        # 64    	Ideogram stress marking
-        # 65    	No ideogram attributes
-        # 73    	Superscript
-        # 74    	Subscript
-        # 75    	Neither superscript nor subscript
-        # 90–97 	Set bright foreground color
-        # 100–107 	Set bright background color
 
+        if len(params) == 0:  # reset
+            self.flags = 0
+            self.color_fg = -1
+            self.color_bg = -1
+            return
+
+        # check for 256 color
+        color256 = False
+        color256fg = False
+        color256bg = False
         for param in params:
             if param is None:
                 continue
+            if param == 38:
+                color256fg = True
+            if param == 48:
+                color256bg = True
+            if param == 5 and (color256fg or color256bg):
+                color256 = True
 
-            if param == 0:
-                self.flags = 0
-                self.color_fg = -1
-                self.color_bg = -1
-            elif param == 1:
-                self.flags |= curses.A_BOLD
-            elif param == 2:
-                self.flags |= curses.A_DIM
-            elif param == 3:
-                self.flags |= curses.A_ITALIC
-            elif param == 4:
-                self.flags |= curses.A_UNDERLINE
-            elif param == 5:
-                if self.dec_blinking_cursor:
-                    self.flags |= curses.A_BLINK
-                else:
-                    # self.flags |= curses.A_STANDOUT
-                    self.log("todo: blink with .dec_blinking_cursor false")
-            elif param == 6:
-                self.log("todo: color flag 6")
-                self.flags |= curses.A_STANDOUT
-            elif param == 7:  # invert colors fg, bg
-                self.flags |= curses.A_REVERSE
+            if not color256:
+                if param == 0:  # reset
+                    self.flags = 0
+                    self.color_fg = -1
+                    self.color_bg = -1
+                elif param == 1:
+                    self.flags |= curses.A_BOLD
+                elif param == 2:
+                    self.flags |= curses.A_DIM
+                elif param == 3:
+                    self.flags |= curses.A_ITALIC
+                elif param == 4:
+                    self.flags |= curses.A_UNDERLINE
+                elif param == 5:
+                    if self.dec_blinking_cursor:
+                        self.flags |= curses.A_BLINK
+                    else:
+                        # self.flags |= curses.A_STANDOUT
+                        self.log("todo: blink with .dec_blinking_cursor false")
+                elif param == 6:
+                    self.log("todo: color flag 6")
+                    self.flags |= curses.A_STANDOUT
+                elif param == 7:  # invert colors fg, bg
+                    self.flags |= curses.A_REVERSE
 
-            elif param >= 30 and param <= 37:
-                self.color_fg = param - 30
-            elif param >= 40 and param <= 47:
-                self.color_bg = param - 40
+                elif param >= 30 and param <= 37:
+                    self.color_fg = param - 30
+                elif param >= 40 and param <= 47:
+                    self.color_bg = param - 40
 
-            elif param >= 90 and param <= 97:
-                self.color_fg = param - 90 + 8
-            elif param >= 100 and param <= 107:
-                self.color_bg = param - 100 + 8
+                elif param >= 90 and param <= 97:
+                    self.color_fg = param - 90 + 8
+                elif param >= 100 and param <= 107:
+                    self.color_bg = param - 100 + 8
 
-            elif param == 39:
-                self.color_fg = -1
-            elif param == 49:
-                self.color_bg = -1
+                # 256 color flags
+                elif param == 38:
+                    continue
+                elif param == 48:
+                    continue
+
+                elif param == 39:
+                    self.color_fg = -1
+                elif param == 49:
+                    self.color_bg = -1
+
+            elif color256fg:
+                self.color_fg = param
+            elif color256bg:
+                self.color_bg = param
 
     def get_color(self):
         idx = -1
@@ -273,25 +254,15 @@ class ClashTerminal:
     def ansi_unhandled(self, g):
         self.log(f"todo: esc seq '\\x1b{g[0]}'")
 
-    def ansi_reset_color(self, g):
-        self.color_fg = -1
-        self.color_bg = -1
-        self.flags = 0
-
     def ansi_color(self, g):
         self.log(f"clr: {g}")
-        self.set_color([int(x) for x in g])
-
-    def ansi_color256(self, g):
-        self.log(f"clr256: {g}")
-        t = g[0]
-        color = g[1]
-        if t == "38":
-            self.color_fg = int(color)
-        elif t == "48":
-            self.color_bg = int(color)
-        else:
-            self.log(f"todo: color256 {g}")
+        params = []
+        for c in g[0].split(";"):
+            v = c.lstrip("0")
+            if v == "":
+                v = "0"
+            params.append(int(v))
+        self.set_color(params)
 
     def ansi_move_up(self, g):
         rows = 1
@@ -358,9 +329,9 @@ class ClashTerminal:
 
     def ansi_delete_chars(self, g):
         num = 1
-        if len(g) > 1:
+        if len(g) > 0:
             try:
-                num = int(g[1])
+                num = int(g[0])
             except Exception:
                 pass
         if self.col + num > self.cols:
@@ -379,7 +350,12 @@ class ClashTerminal:
         self.move(self.row, self.col)
 
     def ansi_position_col(self, g):
-        col = g[0]
+        col = 1
+        if len(g) > 0:
+            try:
+                col = int(g[0])
+            except Exception:
+                pass
         self.col = int(col) - 1
         self.move(self.row, self.col)
         self.log(f"pos: {self.row} {self.col}")
@@ -644,10 +620,7 @@ class ClashTerminal:
         # https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
 
         ansi = {
-                r"\[;?(\d+)[m]": self.ansi_color,
-                r"\[;?(\d+);(\d+)m": self.ansi_color,
-                r"\[;?([34]8);5;(\d+)m": self.ansi_color256,
-                r"\[;?m": self.ansi_reset_color,
+                r"\[([;\d]*)m": self.ansi_color,
 
                 r"(\d)": self.ansi_unhandled,
                 r"\[;?(\d+);(\d+)H": self.ansi_position,
@@ -661,15 +634,15 @@ class ClashTerminal:
                 r"\[;?(\d+)d": self.ansi_move_row,
                 r"\[;?\?(\d+)([hl])": self.dec_private_modes,
                 r"\[;?(\d*)([XK])": self.ansi_erase_line,
-                r"\[;?(\d*)A": self.ansi_move_up,
-                r"\[;?(\d*)B": self.ansi_move_down,
-                r"\[;?(\d*)C": self.ansi_move_right,
-                r"\[;?(\d*)D": self.ansi_move_left,
-                r"\[;?(\d+)G": self.ansi_position_col,
+                r"\[;?(-?\d*)A": self.ansi_move_up,
+                r"\[;?(-?\d*)B": self.ansi_move_down,
+                r"\[;?(-?\d*)C": self.ansi_move_right,
+                r"\[;?(-?\d*)D": self.ansi_move_left,
+                r"\[;?(\d*)G": self.ansi_position_col,
                 r"\[;?(\d+)M": self.ansi_append_lines,
                 r"\[;?(\d*)L": self.ansi_insert_lines,
                 r"(\[;?(\d*)J)": self.ansi_erase,
-                r"(\[;?(\d+)P)": self.ansi_delete_chars,  # delete n chars from pos
+                r"\[;?(\d+)P": self.ansi_delete_chars,
                 r"\[;?H": self.ansi_pos_home,
                 r"M": self.ansi_move_up,   # https://www.aivosto.com/articles/control-characters.html
                 r"(\[;??1000l)": self.ansi_unhandled,  # X11 Mouse Reporting
