@@ -6,6 +6,7 @@ Build-Depends: debhelper (>= 7), dh-python, python3-setuptools, python3-all, pyt
 Standards-Version: 3.9.7
 
 Package: python3-clash
+Provides: clash
 Architecture: all
 Depends: ${misc:Depends}, ${python:Depends}, python3-aiohttp, python3-psutil, python3-click, python3-setproctitle
 Description: Collaboration Shell
