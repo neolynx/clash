@@ -1,3 +1,10 @@
+clash (0.0.16) unstable; urgency=medium
+
+  * debian: provide clash package
+  * terminal: support esc sequences starting with semicolon
+
+ -- André Roth <neolynx@gmail.com>  Fri, 30 Sep 2022 15:28:42 +0200
+
 clash (0.0.15) unstable; urgency=medium
 
   * use virtual columns and rows
