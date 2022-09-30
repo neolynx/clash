@@ -1,3 +1,10 @@
+clash (0.0.17) unstable; urgency=medium
+
+  * fix erase character
+  * fix colors
+
+ -- André Roth <neolynx@gmail.com>  Fri, 30 Sep 2022 23:59:16 +0200
+
 clash (0.0.16) unstable; urgency=medium
 
   * debian: provide clash package
