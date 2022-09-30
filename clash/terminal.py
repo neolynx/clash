@@ -340,7 +340,7 @@ class ClashTerminal:
         for c in range(self.col + num, self.cols):
             ch = self.pad.inch(self.row, c)
             self.pad.addch(self.row, c - num, ch)
-        self.pad.addstr(self.row, self.col + num, " " * (self.cols - num + self.col), self.get_color())
+        self.pad.addstr(self.row, self.col + num, " " * num, self.get_color())
         self.move(self.row, self.col)
 
     def ansi_move_row(self, g):
@@ -438,13 +438,13 @@ class ClashTerminal:
         self.log(f"erase screen {g}")
 
         if len(g) > 1:
-            if g[1] == "0" or g[1] == "":  # J / 0J: erase from cursor until end of screen
+            if g[0] == "0" or g[0] == "":  # J / 0J: erase from cursor until end of screen
                 self.log(f"todo: erase from cursor until end of screen")
 
-            elif g[1] == "1":  # 1J: erase from cursor to beginning of screen
+            elif g[0] == "1":  # 1J: erase from cursor to beginning of screen
                 self.log(f"todo: erase scrollback")
 
-            elif g[1] == "2":  # 2J: erase entire screen
+            elif g[0] == "2":  # 2J: erase entire screen
                 self.row = 0
                 self.col = 0
                 self.move(self.row, self.col)
@@ -455,7 +455,7 @@ class ClashTerminal:
                     except Exception:
                         self.log(f"err: {r} 0 ' ' * {self.cols}")
 
-            elif g[1] == "3":  # 3J: erase saved lines / scrollback
+            elif g[0] == "3":  # 3J: erase saved lines / scrollback
                 self.log(f"todo: erase scrollback")
 
             else:
@@ -641,7 +641,7 @@ class ClashTerminal:
                 r"\[;?(\d*)G": self.ansi_position_col,
                 r"\[;?(\d+)M": self.ansi_append_lines,
                 r"\[;?(\d*)L": self.ansi_insert_lines,
-                r"(\[;?(\d*)J)": self.ansi_erase,
+                r"\[;?(\d*)J": self.ansi_erase,
                 r"\[;?(\d+)P": self.ansi_delete_chars,
                 r"\[;?H": self.ansi_pos_home,
                 r"M": self.ansi_move_up,   # https://www.aivosto.com/articles/control-characters.html
