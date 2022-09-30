@@ -294,20 +294,60 @@ class ClashTerminal:
             self.log(f"todo: color256 {g}")
 
     def ansi_move_up(self, g):
-        # FIXME: get rows optionally grom g[0]?
-        self.log(f"todo: mov up {g}")
         rows = 1
+        if len(g) > 0:
+            try:
+                rows = int(g[0])
+            except Exception:
+                pass
         self.log(f"mov: up {rows} from {self.row}")
         self.row -= int(rows) - 1
         if self.row < 0:
             self.row = 0
         self.move(self.row, self.col)
 
+    def ansi_move_down(self, g):
+        rows = 1
+        if len(g) > 0:
+            try:
+                rows = int(g[0])
+            except Exception:
+                pass
+        self.log(f"mov: down {rows} from {self.row}")
+        self.row += int(rows) - 1
+        if self.row < 0:
+            self.row = 0
+        self.move(self.row, self.col)
+
+    def ansi_move_right(self, g):
+        cols = 1
+        if len(g) > 0:
+            try:
+                cols = int(g[0])
+            except Exception:
+                pass
+        self.log(f"mov: right {cols} from {self.col}")
+        self.col += cols
+        self.move(self.row, self.col)
+
+    def ansi_move_left(self, g):
+        cols = 1
+        if len(g) > 0:
+            try:
+                cols = int(g[0])
+            except Exception:
+                pass
+        self.log(f"mov: left {cols} from {self.col}")
+        self.col -= cols
+        if self.col < 0:
+            self.col = 0
+        self.move(self.row, self.col)
+
     def insert_chars(self, g):
         num = 1
-        if len(g) > 1:
+        if len(g) > 0:
             try:
-                num = int(g[1])
+                num = int(g[0])
             except Exception:
                 pass
         self.log(f"ins: insert {num} chars at {self.col}")
@@ -330,17 +370,6 @@ class ClashTerminal:
             ch = self.pad.inch(self.row, c)
             self.pad.addch(self.row, c - num, ch)
         self.pad.addstr(self.row, self.col + num, " " * (self.cols - num + self.col), self.get_color())
-        self.move(self.row, self.col)
-
-    def ansi_move_right(self, g):
-        cols = 1
-        if len(g) > 0:
-            try:
-                cols = int(g[0])
-            except Exception:
-                pass
-        self.log(f"mov: right {cols} from {self.col}")
-        self.col += cols
         self.move(self.row, self.col)
 
     def ansi_move_row(self, g):
@@ -615,54 +644,56 @@ class ClashTerminal:
         # https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
 
         ansi = {
-                r"\[(\d+)[m]": self.ansi_color,
-                r"\[(\d+);(\d+)m": self.ansi_color,
-                r"\[([34]8);5;(\d+)m": self.ansi_color256,
-                r"\[m": self.ansi_reset_color,
+                r"\[;?(\d+)[m]": self.ansi_color,
+                r"\[;?(\d+);(\d+)m": self.ansi_color,
+                r"\[;?([34]8);5;(\d+)m": self.ansi_color256,
+                r"\[;?m": self.ansi_reset_color,
 
                 r"(\d)": self.ansi_unhandled,
-                r"\[(\d+);(\d+)H": self.ansi_position,
-                r"\[(\d+)H": self.ansi_position,
-                r"(\[4l)": self.ansi_unhandled,  # ReSet insert mode.
-                r"\[\?1c": self.ansi_hide_cursor,
-                r"\[\?0c": self.ansi_show_cursor,
+                r"\[;?(\d+);(\d+)H": self.ansi_position,
+                r"\[;?(\d+)H": self.ansi_position,
+                r"(\[;?4l)": self.ansi_unhandled,  # ReSet insert mode.
+                r"\[;?\?1c": self.ansi_hide_cursor,
+                r"\[;?\?0c": self.ansi_show_cursor,
                 r"(\)0)": self.ansi_unhandled,  # )0 Start / (0 Select VT100 graphics mapping
-                r"\[(\d+);(\d+)r": self.ansi_set_margin,
-                r"(\[(\d+)n)": self.ansi_report,
-                r"\[(\d+)d": self.ansi_move_row,
-                r"\[\?(\d+)([hl])": self.dec_private_modes,
-                r"\[(\d*)([XK])": self.ansi_erase_line,
-                r"(\[(\d*)A)": self.ansi_unhandled,  # move cursor up
-                r"\[(\d+)G": self.ansi_position_col,
-                r"\[(\d+)M": self.ansi_append_lines,
-                r"\[(\d*)L": self.ansi_insert_lines,
-                r"(\[(\d*)J)": self.ansi_erase,
-                r"(\[(\d+)P)": self.ansi_delete_chars,  # delete n chars from pos
-                r"\[(\d*)C": self.ansi_move_right,
-                r"\[H": self.ansi_pos_home,
+                r"\[;?(\d+);(\d+)r": self.ansi_set_margin,
+                r"(\[;?(\d+)n)": self.ansi_report,
+                r"\[;?(\d+)d": self.ansi_move_row,
+                r"\[;?\?(\d+)([hl])": self.dec_private_modes,
+                r"\[;?(\d*)([XK])": self.ansi_erase_line,
+                r"\[;?(\d*)A": self.ansi_move_up,
+                r"\[;?(\d*)B": self.ansi_move_down,
+                r"\[;?(\d*)C": self.ansi_move_right,
+                r"\[;?(\d*)D": self.ansi_move_left,
+                r"\[;?(\d+)G": self.ansi_position_col,
+                r"\[;?(\d+)M": self.ansi_append_lines,
+                r"\[;?(\d*)L": self.ansi_insert_lines,
+                r"(\[;?(\d*)J)": self.ansi_erase,
+                r"(\[;?(\d+)P)": self.ansi_delete_chars,  # delete n chars from pos
+                r"\[;?H": self.ansi_pos_home,
                 r"M": self.ansi_move_up,   # https://www.aivosto.com/articles/control-characters.html
-                r"(\[?1000l)": self.ansi_unhandled,  # X11 Mouse Reporting
+                r"(\[;??1000l)": self.ansi_unhandled,  # X11 Mouse Reporting
                 r"(c)": self.ansi_unhandled,  # Reset
                 r"(\]R)": self.ansi_unhandled,  # Reset Palette
                 r"\]0;([^\a]+)\a": self.xterm_set_window_title,
-                r"(\[>c)": self.ansi_secondary_device,
+                r"(\[;?>c)": self.ansi_secondary_device,
                 r"(\]10;\?\x07)": self.ansi_unhandled,
                 r"(\]11;\?\x07)": self.ansi_unhandled,
                 r"(\]12;([^\x07]+)\x07)": self.ansi_unhandled,
-                r"(\[2(\d);(\d)t)": self.ansi_unhandled,
-                r"(\[2(\d);(\d);(\d)t)": self.ansi_unhandled,
-                r"(\[>(\d);(\d?)m)": self.ansi_unhandled,
-                r"(\[?2004h)": self.ansi_unhandled,
+                r"(\[;?2(\d);(\d)t)": self.ansi_unhandled,
+                r"(\[;?2(\d);(\d);(\d)t)": self.ansi_unhandled,
+                r"(\[;?>(\d);(\d?)m)": self.ansi_unhandled,
+                r"(\[;??2004h)": self.ansi_unhandled,
                 r"(=)": self.ansi_keypad,
                 r"(>)": self.ansi_keypad,
                 r"\((.)": self.ansi_charset,
                 r"(\](\d+)\x07)": self.ansi_unhandled,
-                r"(\[!p)": self.ansi_unhandled,
-                r"(\[\?(\d);(\d)l)": self.ansi_unhandled,
+                r"(\[;?!p)": self.ansi_unhandled,
+                r"(\[;?\?(\d);(\d)l)": self.ansi_unhandled,
                 r"(\(0)": self.ansi_unhandled,
-                r"(\[(\d)S)": self.ansi_scroll_up,
-                r"(\[(\d+)@)": self.insert_chars,  # CSI Ps @  Insert Ps (Blank) Character(s) (default = 1) (ICH).
-                r"\[(\d+)T": self.ansi_unhandled,  # CSI Ps T  Scroll down Ps lines (default = 1) (SD), VT420.
+                r"(\[;?(\d)S)": self.ansi_scroll_up,
+                r"\[;?(\d+)@": self.insert_chars,  # CSI Ps @  Insert Ps (Blank) Character(s) (default = 1) (ICH).
+                r"\[;?(\d+)T": self.ansi_unhandled,  # CSI Ps T  Scroll down Ps lines (default = 1) (SD), VT420.
         }
 
         if self.remainder:
