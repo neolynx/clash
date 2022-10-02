@@ -1,3 +1,10 @@
+clash (0.0.18) unstable; urgency=medium
+
+  * shell: add more env vars
+  * cleanup
+
+ -- André Roth <neolynx@gmail.com>  Sun, 02 Oct 2022 17:31:00 +0200
+
 clash (0.0.17) unstable; urgency=medium
 
   * fix erase character
