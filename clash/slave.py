@@ -29,11 +29,6 @@ class ClashSlave:
         def sig_handler(signame, queue):
             queue.put_nowait(signame)
 
-        loop = asyncio.get_event_loop()
-        for signame in {'SIGINT', 'SIGTERM', 'SIGTSTP', 'SIGCONT'}:
-            loop.add_signal_handler(getattr(signal, signame), functools.partial(sig_handler, signame, self.signal_queue))
-            # loop.add_signal_handler(getattr(signal, signame), lambda signame=signame: asyncio.create_task(sig_handler(signame)))
-
         async def signal_worker():
             while True:
                 sig = await self.signal_queue.get()
@@ -48,12 +43,17 @@ class ClashSlave:
             return
 
         self.log("slave: connected")
+        loop = asyncio.get_event_loop()
         await self.run_slave_worker(loop)
 
         self.log("slave: wait for screen info")
         await(self.screen_data_available)
 
         self.log("terminal: starting")
+        for signame in {'SIGINT', 'SIGTERM', 'SIGTSTP', 'SIGCONT'}:
+            loop.add_signal_handler(getattr(signal, signame), functools.partial(sig_handler, signame, self.signal_queue))
+            # loop.add_signal_handler(getattr(signal, signame), lambda signame=signame: asyncio.create_task(sig_handler(signame)))
+
         self.terminal.start(self.cols, self.rows)
         self.init_screen()
 
@@ -110,7 +110,6 @@ class ClashSlave:
         return await(self.slave_worker_done)
 
     async def handle_slave_msg(self, msg):
-        self.log("slave msg")
         data = json.loads(msg)
         if "screen" in data:
             self.scrinit = data.get("screen")
@@ -140,7 +139,7 @@ class ClashSlave:
         self.terminal.col = self.scrinit['col']
         self.terminal.row = self.scrinit['row']
         self.log(f"mov: {self.terminal.row}, {self.terminal.col}")
-        self.terminal.pad.move(self.terminal.row, self.terminal.col)
+        self.terminal.move_cursor(self.terminal.row, self.terminal.col)
         self.terminal.refresh()
 
     async def handle_stdin(self, data):

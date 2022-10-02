@@ -32,9 +32,6 @@ todo: [5S
 todo: (B
     setusg0               Set United States G0 character set     ^[(B
 
-todo: c
-    ?? cursorrt              Move cursor right one char             ^[C
-
 todo: [>c
     DA2	Secondary Device Attributes
 
@@ -42,14 +39,8 @@ todo: dec 2004
     DECSET	DEC Private Set Mode	CSI ? Pm h	Set various terminal attributes
     2004	Set bracketed paste mode.
 
-todo: dec 1049
-    1049	Save cursor and switch to alternate buffer clearing it.
-
 todo: dec 7
     Auto-wrap Mode (DECAWM).
-
-todo: dec 12
-    Start Blinking Cursor.
 
 todo: dec 1
     Application Cursor Keys (DECCKM).
@@ -64,13 +55,6 @@ todo: ['[J', '']
 todo: [!p
     DECSTR	Soft Terminal Reset	CSI ! p	Reset several terminal attributes to initial state
 
-todo: [13C
-todo: [12C
-todo: [11C
-todo: [10C
-todo: [C
-    CUF	Cursor Forward	CSI Ps C	Move cursor Ps times forward (default=1).
-
 todo: ]104
 todo: ]11;?
 todo: [22;0;0t
@@ -84,3 +68,15 @@ todo: [>4;2m
 todo: ]10;?
 todo: [6@
 todo: [2@
+
+
+vim: search, history up
+put: 31x21:  clash/terminal.py
+chr: CR
+chr: LF
+pos: scroll up
+clr: ['']
+clr: ['38;5;245']
+clr: #8: 245 -1 0
+put: 31x0: /qwe
+

@@ -51,13 +51,15 @@ class ClashMaster:
                 line = f.readline()
                 tgid = int(line.split(" ")[7].strip())
             if tgid == child.pid:  # foreground process
-                os.kill(child.pid, signum)
+                self.log(child)
+                try:
+                    os.kill(child.pid, signum)
+                except Exception:
+                    pass
                 break
 
     async def run(self):
         loop = asyncio.get_event_loop()
-        for signame in {'SIGINT', 'SIGTERM', 'SIGTSTP', 'SIGCONT', 'SIGWINCH'}:
-            loop.add_signal_handler(getattr(signal, signame), functools.partial(self.sig_handler, signame))
 
         async def sig_worker():
             while self.up:
@@ -73,6 +75,9 @@ class ClashMaster:
             return
 
         self.log("terminal: starting")
+        for signame in {'SIGINT', 'SIGTERM', 'SIGTSTP', 'SIGCONT', 'SIGWINCH'}:
+            loop.add_signal_handler(getattr(signal, signame), functools.partial(self.sig_handler, signame))
+
         cols, rows = self.terminal.start()
 
         self.log("master: starting")
@@ -103,7 +108,6 @@ class ClashMaster:
         print("[exited]")
 
     async def handle_server_msg(self, msg):
-        self.log(f"srv: msg {msg}")
         data = json.loads(msg)
         if "session" in data:
             session_id = data.get("session")

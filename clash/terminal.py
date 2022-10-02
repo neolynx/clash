@@ -84,7 +84,7 @@ class ClashTerminal:
 
     def puttext(self, text):
         color = self.get_color()
-        self.log(f"put: {self.row}x{self.col}: {text}")
+        # self.log(f"put: {self.row}x{self.col}: {text}")
         length = len(text)
         if self.col + length > self.cols:
             self.log(f"err: truncating {length} to {self.cols - self.col - 1} rest: {bytes(text[self.cols - self.col - 1:].encode())}")
@@ -242,20 +242,19 @@ class ClashTerminal:
 
         if bg * 256 + fg not in self.colors:
             idx = len(self.colors)
+            self.log(f"clr: adding {fg} {bg}")
             curses.init_pair(idx, fg, bg)
             self.colors[bg * 256 + fg] = idx
-            self.log(f"clr: add {idx}: {fg}/{bg}")
         else:
             idx = self.colors[bg * 256 + fg]
 
-        self.log(f"clr: #{idx}: {self.color_fg} {self.color_bg} {self.flags}")
         return curses.color_pair(idx) | self.flags
 
     def ansi_unhandled(self, g):
         self.log(f"todo: esc seq '\\x1b{g[0]}'")
 
     def ansi_color(self, g):
-        self.log(f"clr: {g}")
+        # self.log(f"clr: {g}")
         params = []
         for c in g[0].split(";"):
             v = c.lstrip("0")
@@ -560,6 +559,10 @@ class ClashTerminal:
 
         if opt == 1:
             self.log(f"todo: dec: Application Cursor Keys {val}")
+            # https://documentation.help/PuTTY/config-appcursor.html
+
+        elif opt == 4:
+            self.log(f"todo: dec: insert mode {val}")
 
         elif opt == 7:
             self.log(f"todo: dec: autowrap {val}")
@@ -607,8 +610,9 @@ class ClashTerminal:
             self.log(f"todo: dec {opt} {val}")
 
     def xterm_set_window_title(self, g):
-        self.log(f"window title: {g[0]}")
+        # self.log(f"window title: {g[0]}")
         # self.p_out.write(f"\x1b]0;clash: {g[0]}\x07".encode())
+        pass
 
     def ansi_secondary_device(self, g):
         self.log("todo: dec: set secondary device attributes")
@@ -623,9 +627,6 @@ class ClashTerminal:
                 r"\[([;\d]*)m": self.ansi_color,
 
                 r"(\d)": self.ansi_unhandled,
-                r"\[;?(\d+);(\d+)H": self.ansi_position,
-                r"\[;?(\d+)H": self.ansi_position,
-                r"(\[;?4l)": self.ansi_unhandled,  # ReSet insert mode.
                 r"\[;?\?1c": self.ansi_hide_cursor,
                 r"\[;?\?0c": self.ansi_show_cursor,
                 r"(\)0)": self.ansi_unhandled,  # )0 Start / (0 Select VT100 graphics mapping
@@ -633,19 +634,27 @@ class ClashTerminal:
                 r"(\[;?(\d+)n)": self.ansi_report,
                 r"\[;?(\d+)d": self.ansi_move_row,
                 r"\[;?\?(\d+)([hl])": self.dec_private_modes,
-                r"\[;?(\d*)([XK])": self.ansi_erase_line,
+                r"(\[(\d+)([hl]))": self.ansi_unhandled,
+                r"(\[;??1000l)": self.ansi_unhandled,  # X11 Mouse Reporting
+                r"(\[;??2004h)": self.ansi_unhandled,
+                r"(\[;?\?(\d);(\d)l)": self.ansi_unhandled,
                 r"\[;?(-?\d*)A": self.ansi_move_up,
                 r"\[;?(-?\d*)B": self.ansi_move_down,
                 r"\[;?(-?\d*)C": self.ansi_move_right,
                 r"\[;?(-?\d*)D": self.ansi_move_left,
                 r"\[;?(\d*)G": self.ansi_position_col,
-                r"\[;?(\d+)M": self.ansi_append_lines,
-                r"\[;?(\d*)L": self.ansi_insert_lines,
-                r"\[;?(\d*)J": self.ansi_erase,
-                r"\[;?(\d+)P": self.ansi_delete_chars,
+                r"\[;?(\d+);(\d+)H": self.ansi_position,
+                r"\[;?(\d+)H": self.ansi_position,
                 r"\[;?H": self.ansi_pos_home,
+                r"\[;?(\d*)J": self.ansi_erase,
+                r"\[;?(\d*)([XK])": self.ansi_erase_line,
+                r"\[;?(\d*)L": self.ansi_insert_lines,
+                r"\[;?(\d+)M": self.ansi_append_lines,
+                r"\[;?(\d+)P": self.ansi_delete_chars,
+                r"(\[;?(\d)S)": self.ansi_scroll_up,
+                r"\[;?(\d+)T": self.ansi_unhandled,  # CSI Ps T  Scroll down Ps lines (default = 1) (SD), VT420.
+                r"\[;?(\d+)@": self.insert_chars,  # CSI Ps @  Insert Ps (Blank) Character(s) (default = 1) (ICH).
                 r"M": self.ansi_move_up,   # https://www.aivosto.com/articles/control-characters.html
-                r"(\[;??1000l)": self.ansi_unhandled,  # X11 Mouse Reporting
                 r"(c)": self.ansi_unhandled,  # Reset
                 r"(\]R)": self.ansi_unhandled,  # Reset Palette
                 r"\]0;([^\a]+)\a": self.xterm_set_window_title,
@@ -656,17 +665,12 @@ class ClashTerminal:
                 r"(\[;?2(\d);(\d)t)": self.ansi_unhandled,
                 r"(\[;?2(\d);(\d);(\d)t)": self.ansi_unhandled,
                 r"(\[;?>(\d);(\d?)m)": self.ansi_unhandled,
-                r"(\[;??2004h)": self.ansi_unhandled,
                 r"(=)": self.ansi_keypad,
                 r"(>)": self.ansi_keypad,
                 r"\((.)": self.ansi_charset,
                 r"(\](\d+)\x07)": self.ansi_unhandled,
                 r"(\[;?!p)": self.ansi_unhandled,
-                r"(\[;?\?(\d);(\d)l)": self.ansi_unhandled,
                 r"(\(0)": self.ansi_unhandled,
-                r"(\[;?(\d)S)": self.ansi_scroll_up,
-                r"\[;?(\d+)@": self.insert_chars,  # CSI Ps @  Insert Ps (Blank) Character(s) (default = 1) (ICH).
-                r"\[;?(\d+)T": self.ansi_unhandled,  # CSI Ps T  Scroll down Ps lines (default = 1) (SD), VT420.
         }
 
         if self.remainder:
