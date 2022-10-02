@@ -7,8 +7,6 @@ import shlex
 import asyncio
 import struct
 import termios
-import signal
-import psutil
 
 
 class ClashShell:
@@ -51,6 +49,9 @@ class ClashShell:
             env = dict(COLUMNS=str(self.columns), LINES=str(self.lines))
             env.update(dict(LANG=os.environ["LANG"],
                             TERM=os.environ["TERM"],
+                            PATH=os.environ["PATH"],
+                            USER=os.environ["USER"],
+                            LANGUAGE=os.environ["LANGUAGE"],
                             HOME=os.environ["HOME"]))
             os.execvpe(argv[0], argv, env)
             # child ends here
