@@ -4,8 +4,9 @@ import curses
 import curses.panel
 import re
 import traceback
-
-terminal = None
+from struct import pack, unpack
+from fcntl import ioctl
+from termios import TIOCGWINSZ
 
 
 class ClashTerminal:
@@ -24,6 +25,10 @@ class ClashTerminal:
         self.dec_blinking_cursor = True
         self.colors = {}
         self.charset_lines = False
+        self.border_row = None
+        self.border_col = None
+        self.less_rows = None
+        self.less_cols = None
 
         # dec
         self.dec_bracketed_paste_mode = False
@@ -34,10 +39,11 @@ class ClashTerminal:
 
     def start(self, cols=0, rows=0):
         self.screen = curses.initscr()
+
         self.height, self.width = self.screen.getmaxyx()
         if not rows or not cols:
-            self.rows = self.height
-            self.cols = self.width
+            self.rows = self.height - 1
+            self.cols = self.width - 1
         else:
             self.cols = cols
             self.rows = rows
@@ -62,6 +68,8 @@ class ClashTerminal:
             curses.endwin()
             raise Exception("Error: ncurses cannot change color! Please export TERM=xterm-256color")
 
+        self.update_border()
+        self.refresh()
         return self.cols, self.rows
 
     def stop(self):
@@ -72,10 +80,58 @@ class ClashTerminal:
         curses.endwin()
         self.log("terminal: terminated")
 
+    def update_border(self):
+        old_color_fg = self.color_fg
+        old_color_bg = self.color_bg
+        old_flags = self.flags
+
+        row = self.rows
+        col = self.cols
+        self.less_rows = False
+        self.less_cols = False
+        if row >= self.height:
+            row = self.height - 1
+            self.less_rows = True
+        if col >= self.width:
+            col = self.width - 1
+            self.less_cols = True
+
+        bottom = "─"
+        right = "│"
+        corner = "╯"
+        if self.less_rows:
+            bottom = corner = "↓"
+        if self.less_cols:
+            right = corner = "→"
+        if self.less_rows and self.less_cols:
+            corner = "↘"
+
+        self.color_fg = 61
+        self.flags = 0
+        curses.curs_set(0)
+        self.screen.addstr(row, 0, bottom * col, self.get_color())
+        for i in range(0, row):
+            self.screen.addstr(i, col, right, self.get_color())
+        # writing to bottom right corner throws an exception, but works
+        try:
+            self.screen.addstr(row, col, corner, self.get_color())
+        except Exception:
+            pass
+        self.border_row = row
+        self.border_col = col
+
+        self.color_fg = old_color_fg
+        self.color_bg = old_color_bg
+        self.flags = old_flags
+
+        self.move_cursor(self.row, self.col)
+        curses.curs_set(1)
+
     def linefeed(self):
         if self.row < self.margin_bottom - 1:
             self.row += 1
-            self.move(self.row, self.col)
+            # self.log(f"pos: linefeed {self.row}")
+            self.move_cursor(self.row, self.col)
         else:
             self.log("pos: scroll up")
             # firstline = []
@@ -132,7 +188,7 @@ class ClashTerminal:
                 elif code == 8:  # BS
                     if self.col > 0:
                         self.col -= 1
-                        self.move(self.row, self.col)
+                        self.move_cursor(self.row, self.col)
                 elif code == 9:  # Tab
                     if self.col < self.cols - 8:
                         try:
@@ -140,14 +196,14 @@ class ClashTerminal:
                         except Exception:
                             self.log(f"err: {self.row} {self.col} '        ")
                         self.col += 8
-                        self.move(self.row, self.col)
+                        self.move_cursor(self.row, self.col)
                 elif code == 10:  # LF
-                    self.log("chr: LF")
+                    # self.log("chr: LF")
                     self.linefeed()
                 elif code == 13:  # CR
-                    self.log(f"chr: CR {self.row}")
+                    # self.log(f"chr: CR {self.row}")
                     self.col = 0
-                    self.move(self.row, self.col)
+                    self.move_cursor(self.row, self.col)
                 elif code == 15:  # reset font ??
                     self.flags = 0
                     self.color_fg = -1
@@ -248,13 +304,13 @@ class ClashTerminal:
 
         if bg * 256 + fg not in self.colors:
             idx = len(self.colors)
-            self.log(f"clr: adding {fg} {bg}")
-            curses.init_pair(idx, fg, bg)
+            self.log(f"clr: adding {idx}: {fg} {bg}")
+            curses.init_pair(idx + 1, fg, bg)
             self.colors[bg * 256 + fg] = idx
         else:
             idx = self.colors[bg * 256 + fg]
 
-        return curses.color_pair(idx) | self.flags
+        return curses.color_pair(idx + 1) | self.flags
 
     def ansi_unhandled(self, g):
         self.log(f"todo: esc seq '\\x1b{g[0]}'")
@@ -282,7 +338,7 @@ class ClashTerminal:
         if self.row < 0:
             self.row = 0
         self.log(f"mov: up {rows} rows to {self.row}")
-        self.move(self.row, self.col)
+        self.move_cursor(self.row, self.col)
 
     def ansi_move_down(self, g):
         rows = 1
@@ -295,7 +351,7 @@ class ClashTerminal:
         if self.row < 0:
             self.row = 0
         self.log(f"mov: down {rows} rows to {self.row}")
-        self.move(self.row, self.col)
+        self.move_cursor(self.row, self.col)
 
     def ansi_move_right(self, g):
         cols = 1
@@ -306,7 +362,7 @@ class ClashTerminal:
                 pass
         self.log(f"mov: right {cols} from {self.col}")
         self.col += cols
-        self.move(self.row, self.col)
+        self.move_cursor(self.row, self.col)
 
     def ansi_move_left(self, g):
         cols = 1
@@ -319,7 +375,7 @@ class ClashTerminal:
         self.col -= cols
         if self.col < 0:
             self.col = 0
-        self.move(self.row, self.col)
+        self.move_cursor(self.row, self.col)
 
     def insert_chars(self, g):
         num = 1
@@ -348,13 +404,13 @@ class ClashTerminal:
             ch = self.pad.inch(self.row, c)
             self.pad.addch(self.row, c - num, ch)
         self.pad.addstr(self.row, self.col + num, " " * num, self.get_color())
-        self.move(self.row, self.col)
+        self.move_cursor(self.row, self.col)
 
     def ansi_move_row(self, g):
         row = g[0]
         self.row = int(row) - 1
         self.log(f"row: {self.row}")
-        self.move(self.row, self.col)
+        self.move_cursor(self.row, self.col)
 
     def ansi_position_col(self, g):
         col = 1
@@ -364,8 +420,8 @@ class ClashTerminal:
             except Exception:
                 pass
         self.col = int(col) - 1
-        self.move(self.row, self.col)
         self.log(f"col: {self.col}")
+        self.move_cursor(self.row, self.col)
 
     def ansi_insert_lines(self, g):
         if g[0] == "":
@@ -398,17 +454,17 @@ class ClashTerminal:
             self.row = 0
         elif self.row >= self.rows:
             self.row = self.rows - 1
-        self.log(f"pos: {self.row} {self.col}")
+        # self.log(f"pos: {self.row} {self.col}")
         try:
-            self.move(self.row, self.col)
+            self.move_cursor(self.row, self.col)
         except Exception:
             self.log(f"err: move {self.row} {self.col}")
 
     def ansi_pos_home(self, g):
         self.row = 0
         self.col = 0
-        self.log(f"pos: {self.row} {self.col}")
-        self.move(self.row, self.col)
+        # self.log(f"pos: {self.row} {self.col}")
+        self.move_cursor(self.row, self.col)
 
     def ansi_erase_line(self, g):
         self.log(f"erase line {g}")
@@ -442,7 +498,7 @@ class ClashTerminal:
         try:
             # FIXME: should not move cursor, just will text
             self.pad.addstr(self.row, start, blank, self.get_color())
-            self.move(self.row, self.col)
+            self.move_cursor(self.row, self.col)
         except Exception:
             self.log(f"err: {self.row} {start} ' ' * {length}")
 
@@ -467,7 +523,7 @@ class ClashTerminal:
                 self.log(f"erase screen")
                 self.row = 0
                 self.col = 0
-                self.move(self.row, self.col)
+                self.move_cursor(self.row, self.col)
                 blank = " " * self.cols
                 for r in range(self.row, self.rows):
                     try:
@@ -531,7 +587,7 @@ class ClashTerminal:
             pass
         self.row = self.margin_top
         self.col = 0
-        self.move(self.row, self.col)
+        self.move_cursor(self.row, self.col)
         self.log(f"scroll margin: {self.margin_top} {self.margin_bottom}")
 
     def ansi_scroll_up(self, g):
@@ -540,17 +596,17 @@ class ClashTerminal:
 
     def ansi_append_lines(self, g):
         count = int(g[0])
-        self.log(f"pos: append {count} lines")
+        # self.log(f"pos: append {count} lines")
         row_old = self.row
         col_old = self.col
         self.row = self.margin_bottom - 1
         self.col = 0
-        self.move(self.row, self.col)
+        self.move_cursor(self.row, self.col)
         for _ in range(count):
             self.linefeed()
         self.row = row_old
         self.col = col_old
-        self.move(self.row, self.col)
+        self.move_cursor(self.row, self.col)
 
     def ansi_keypad(self, g):
         keypad = g[0]
@@ -659,7 +715,7 @@ class ClashTerminal:
                 self.savedbuffer = []
                 self.col = self.savedcol
                 self.row = self.savedrow
-                self.move(self.row, self.col)
+                self.move_cursor(self.row, self.col)
 
         elif opt == 2004:
             self.log(f"todo: dec: Set bracketed paste mode {val}")
@@ -802,13 +858,7 @@ class ClashTerminal:
         self.addansi(self.row, self.col, data)
         self.refresh()
 
-    def refresh(self):
-        try:
-            self.pad.refresh(0, 0, 0, 0, self.height - 1, self.width - 1)
-        except Exception:
-            self.log(f"todo: err: pad.refresh")
-
-    def move(self, row, col):
+    def move_cursor(self, row, col):
         if row >= self.rows or col >= self.cols:
             curses.curs_set(0)
         else:  # FIXME: if was enabled before
@@ -818,3 +868,35 @@ class ClashTerminal:
             self.pad.move(row, col)
         except Exception:
             pass
+
+    def refresh(self):
+        self.screen.refresh()
+        h = self.height - 2
+        w = self.width - 2
+        if h > self.rows:
+            h = self.rows - 1
+        if w > self.cols:
+            w = self.cols - 1
+        try:
+            self.pad.refresh(0, 0, 0, 0, h, w)
+        except Exception as exc:
+            self.log(f"todo: err: pad.refresh")
+            self.log(exc)
+
+    def resize(self):
+        height, width, _, _ = unpack('HHHH', ioctl(0, TIOCGWINSZ, pack('HHHH', 0, 0, 0, 0)))
+        self.log(f"resize: screen {width}x{height}")
+        self.height = height
+        self.width = width
+        curses.resize_term(self.height, self.width)
+
+        self.screen.clear()
+        self.update_border()
+        self.refresh()
+        return self.width, self.height
+
+    def resize_terminal(self, cols, rows):
+        self.log(f"resize: terminal {cols}x{rows}")
+        self.cols = cols
+        self.rows = rows
+        self.pad.resize(self.rows, self.cols)

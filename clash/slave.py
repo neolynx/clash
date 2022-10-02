@@ -122,6 +122,15 @@ class ClashSlave:
             self.terminal.input(data)
         elif "bye" in data:
             return False
+        elif "resize" in data:
+            self.cols, self.rows = data.get("resize")
+            self.log(f"resize: {self.cols} {self.rows}")
+            self.terminal.resize_terminal(self.cols - 1, self.rows - 1)
+            self.terminal.screen.clear()
+            self.terminal.update_border()
+            self.terminal.refresh()
+        else:
+            self.log(f"cmd: unhandled command {data.keys()}")
         return True
 
     def init_screen(self):
@@ -139,7 +148,7 @@ class ClashSlave:
         self.terminal.col = self.scrinit['col']
         self.terminal.row = self.scrinit['row']
         self.log(f"mov: {self.terminal.row}, {self.terminal.col}")
-        self.terminal.move(self.terminal.row, self.terminal.col)
+        self.terminal.move_cursor(self.terminal.row, self.terminal.col)
         self.terminal.refresh()
 
     async def handle_stdin(self, data):

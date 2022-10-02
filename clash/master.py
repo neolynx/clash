@@ -65,7 +65,7 @@ class ClashMaster:
                 signame = await self.sigqueue.get()
                 if signame == "SIGWINCH":
                     self.log(f"sigworker: got {signame}")
-                    self.resize()
+                    await self.resize()
 
         loop.create_task(sig_worker())
 
@@ -191,7 +191,8 @@ class ClashMaster:
         await(self.master_worker)
         self.log("master: terminated")
 
-    def resize(self):
+    async def resize(self):
         cols, rows = self.terminal.resize()
-        self.log(f"resize {cols}x{rows}")
-        self.shell.resize(cols, rows)
+        self.terminal.resize_terminal(cols - 1, rows - 1)
+        # self.shell.resize(cols, rows)
+        await self.ws.send_str(json.dumps({"resize": [cols, rows]}))

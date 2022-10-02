@@ -68,9 +68,9 @@ class ClashShell:
             self.up = False
 
     def resize(self, cols, rows):
-        self.log(f"resize: {cols}x{rows}")
+        self.log(f"resize: shell {cols}x{rows}")
         s = struct.pack('HHHH', rows, cols, 0, 0)
-        fcntl.ioctl(self.master_fd, termios.TIOCSWINSZ, s)
+        fcntl.ioctl(self.p_out, termios.TIOCSWINSZ, s)
 
         # does not work:
         # os.kill(self.shell_pid, signal.SIGWINCH)
