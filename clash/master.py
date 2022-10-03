@@ -27,14 +27,12 @@ class ClashMaster:
         self.sigqueue = asyncio.Queue()
 
     def sig_handler(self, signame):
-        if signame == "SIGINT":
-            signum = signal.SIGINT
-        elif signame == "SIGTERM":
-            signum = signal.SIGTERM
+        if signame == "SIGINT" or signame == "SIGTERM":
+            self.shell.write("\x03".encode())
+            return
         elif signame == "SIGTSTP":
-            signum = signal.SIGTSTP
-        elif signame == "SIGCONT":
-            signum = signal.SIGCONT
+            self.shell.write("\x1a".encode())
+            return
         elif signame == "SIGWINCH":
             self.log(f"sig: {signame}")
             self.sigqueue.put_nowait(signame)
@@ -43,6 +41,7 @@ class ClashMaster:
             self.log(f"todo: sig: {signame}")
             return
         self.log(f"sig: {signame}")
+
         current_process = psutil.Process()
         children = current_process.children(recursive=True)
         for child in children:
@@ -75,7 +74,7 @@ class ClashMaster:
             return
 
         self.log("terminal: starting")
-        for signame in {'SIGINT', 'SIGTERM', 'SIGTSTP', 'SIGCONT', 'SIGWINCH'}:
+        for signame in {'SIGINT', 'SIGTERM', 'SIGTSTP', 'SIGWINCH'}:
             loop.add_signal_handler(getattr(signal, signame), functools.partial(self.sig_handler, signame))
 
         cols, rows = self.terminal.start()
