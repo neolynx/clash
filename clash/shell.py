@@ -47,12 +47,12 @@ class ClashShell:
         if self.shell_pid == 0:  # child
             argv = shlex.split(command)
             env = dict(COLUMNS=str(self.columns), LINES=str(self.lines))
-            env.update(dict(LANG=os.environ["LANG"],
-                            TERM=os.environ["TERM"],
-                            PATH=os.environ["PATH"],
-                            USER=os.environ["USER"],
-                            LANGUAGE=os.environ["LANGUAGE"],
-                            HOME=os.environ["HOME"]))
+            env.update(dict(LANG=os.environ.get("LANG", ""),
+                            TERM=os.environ.get("TERM", ""),
+                            PATH=os.environ.get("PATH", ""),
+                            USER=os.environ.get("USER", ""),
+                            LANGUAGE=os.environ.get("LANGUAGE", ""),
+                            HOME=os.environ.get("HOME", "")))
             os.execvpe(argv[0], argv, env)
             # child ends here
 
