@@ -139,7 +139,7 @@ class ClashSlave:
         self.terminal.col = self.scrinit['col']
         self.terminal.row = self.scrinit['row']
         self.log(f"mov: {self.terminal.row}, {self.terminal.col}")
-        self.terminal.move_cursor(self.terminal.row, self.terminal.col)
+        self.terminal.move(self.terminal.row, self.terminal.col)
         self.terminal.refresh()
 
     async def handle_stdin(self, data):
