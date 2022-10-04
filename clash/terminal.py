@@ -35,7 +35,7 @@ class ClashTerminal:
             self.cols = cols
             self.rows = rows
         self.log(f"terminal: starting {self.cols}x{self.rows} ({self.width} {self.height})")
-        self.pad = curses.newpad(self.rows, self.cols)
+        self.pad = curses.newpad(self.rows, self.cols + 1)  # 1 more column to allow printing to the last bottom right character
 
         curses.noecho()
         curses.cbreak()
