@@ -68,7 +68,6 @@ class ClashTerminal:
     def linefeed(self):
         if self.row < self.margin_bottom - 1:
             self.row += 1
-            self.log(f"pos: linefeed {self.row}")
             self.move(self.row, self.col)
         else:
             self.log("pos: scroll up")
@@ -139,7 +138,7 @@ class ClashTerminal:
                     self.log("chr: LF")
                     self.linefeed()
                 elif code == 13:  # CR
-                    self.log("chr: CR")
+                    self.log(f"chr: CR {self.row}")
                     self.col = 0
                     self.move(self.row, self.col)
                 elif code == 15:  # reset font ??
@@ -270,10 +269,12 @@ class ClashTerminal:
                 rows = int(g[0])
             except Exception:
                 pass
-        self.log(f"mov: up {rows} from {self.row}")
-        self.row -= int(rows) - 1
+        if rows < 1:  # is this an error? \x1b[-1A
+            return
+        self.row -= int(rows)
         if self.row < 0:
             self.row = 0
+        self.log(f"mov: up {rows} rows to {self.row}")
         self.move(self.row, self.col)
 
     def ansi_move_down(self, g):
@@ -283,10 +284,10 @@ class ClashTerminal:
                 rows = int(g[0])
             except Exception:
                 pass
-        self.log(f"mov: down {rows} from {self.row}")
-        self.row += int(rows) - 1
+        self.row += int(rows)
         if self.row < 0:
             self.row = 0
+        self.log(f"mov: down {rows} rows to {self.row}")
         self.move(self.row, self.col)
 
     def ansi_move_right(self, g):
@@ -357,7 +358,7 @@ class ClashTerminal:
                 pass
         self.col = int(col) - 1
         self.move(self.row, self.col)
-        self.log(f"pos: {self.row} {self.col}")
+        self.log(f"col: {self.col}")
 
     def ansi_insert_lines(self, g):
         if g[0] == "":
@@ -434,9 +435,8 @@ class ClashTerminal:
             self.log(f"err: {self.row} {start} ' ' * {length}")
 
     def ansi_erase(self, g):
-        self.log(f"erase screen {g}")
 
-        if len(g) > 1:
+        if len(g) > 0:
             if g[0] == "0" or g[0] == "":  # J / 0J: erase from cursor until end of screen
                 self.log(f"todo: erase from cursor until end of screen")
 
@@ -444,11 +444,12 @@ class ClashTerminal:
                 self.log(f"todo: erase scrollback")
 
             elif g[0] == "2":  # 2J: erase entire screen
+                self.log(f"erase screen")
                 self.row = 0
                 self.col = 0
                 self.move(self.row, self.col)
                 blank = " " * self.cols
-                for r in range(self.row, self.rows - 1):
+                for r in range(self.row, self.rows):
                     try:
                         self.pad.addstr(r, 0, blank, self.get_color())
                     except Exception:
@@ -475,9 +476,11 @@ class ClashTerminal:
                     self.log(f"err: {r} 0 ' ' * {self.cols}")
 
     def ansi_hide_cursor(self, *g):
+        self.log("cur: hide")
         curses.curs_set(0)
 
     def ansi_show_cursor(self, *g):
+        self.log("cur: show")
         curses.curs_set(1)
 
     def ansi_report(self, g):
