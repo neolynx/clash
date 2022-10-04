@@ -544,6 +544,34 @@ class ClashTerminal:
         else:
             self.charset_lines = False
 
+    def csi_set_mode(self, g):
+        opt = g[0]
+        try:
+            opt = int(opt)
+        except Exception:
+            pass
+
+        val = False
+        if g[1] == 'h':  # set
+            val = True
+        elif g[1] == 'l':  # reset
+            val = False
+
+        if opt == 2:
+            self.log(f"todo: Keyboard Action Mode (KAM) {val}")
+
+        elif opt == 4:
+            self.log(f"todo: Insert Mode (IRM) {val}")
+
+        elif opt == 12:
+            self.log(f"todo: Send/receive (SRM) {val}")
+
+        elif opt == 20:
+            self.log(f"todo: Automatic Newline (LNM) {val}")
+
+        else:
+            self.log(f"todo: set mode {opt} {val}")
+
     def dec_private_modes(self, g):
         opt = g[0]
         try:
@@ -634,7 +662,7 @@ class ClashTerminal:
                 r"(\[;?(\d+)n)": self.ansi_report,
                 r"\[;?(\d+)d": self.ansi_move_row,
                 r"\[;?\?(\d+)([hl])": self.dec_private_modes,
-                r"(\[(\d+)([hl]))": self.ansi_unhandled,
+                r"\[(\d+)([hl])": self.csi_set_mode,
                 r"(\[;??1000l)": self.ansi_unhandled,  # X11 Mouse Reporting
                 r"(\[;??2004h)": self.ansi_unhandled,
                 r"(\[;?\?(\d);(\d)l)": self.ansi_unhandled,
