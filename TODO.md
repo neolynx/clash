@@ -124,4 +124,35 @@ pos: 32 18
 cur: show
 
 
+same:
+pty: b'\x1b[?25l\x1b[2;26r\x1b[m\x1b[38;5;245m\x1b[2;1H\x1b[2M\x1b[1;28r\x1b[25;1H\x1b[1m\x1b[38;5;124m>>\x1b[m\x1b[38;5;245m\x1b[38;5;240m\x1b[48;5;235m 96 \x1b[m\x1b[38;5;245m\x1b[12Cself.log(f\x1b[38;5;37m"err: truncating {length} to {self.cols - self.col - 1} rest: {bytes(text[see\x1b[m\x1b[38;5;245m\x1b[26;1H\x1b[38;5;245m\x1b[48;5;242m  \x1b[m\x1b[38;5;245m\x1b[38;5;240m\x1b[48;5;235m    \x1b[m\x1b[38;5;245m\x1b[38;5;37mlf.cols - self.col - 1:].encode(\x1b[m\x1b[38;5;245m\x1b]12;%p1%s\x07\x1b[38;5;37m)\x1b[m\x1b[38;5;245m\x1b[38;5;37m)}"\x1b[m\x1b[38;5;245m)\x1b[27;80H\x1b[1m\x1b[38;5;230m\x1b[48;5;245m6/\x1b[25;15H\x1b[?25h'
+cur: hide
+scroll margin: 1 25
+pos: 1 0
+pos: append 2 lines
+pos: scroll up
+pos: scroll up
+scroll margin: 0 27
+pos: 24 0
+mov: right 12 from 6
+err: truncating 77 to 75 rest: b'ee'
+pos: 25 0
+todo: esc seq '\x1b]12;%p1%s'
+pos: 26 79
+pos: 24 14
+cur: show
+pty: b'\x1b[?25l\r\n\r\n\r\n\x1b[m\x1b[38;5;245m:\x1b[?2004hechomsg a:message\r[flake8] line too long (135 > 130 characters) [E]'
+cur: hide
+chr: CR 24
+chr: LF
+chr: CR 25
+chr: LF
+chr: CR 26
+chr: LF
+pos: scroll up
+todo: dec: Set bracketed paste mode True
+chr: CR 26
+pty: b'\x1b[25;15H\x1b[?25h'
+pos: 24 14
+cur: show
 

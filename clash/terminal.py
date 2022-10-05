@@ -596,6 +596,7 @@ class ClashTerminal:
             self.log(f"todo: set mode {opt} {val}")
 
     def dec_private_modes(self, g):
+        # https://terminalguide.namepad.de/mode/
         opt = g[0]
         try:
             opt = int(opt)
