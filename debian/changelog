@@ -1,3 +1,10 @@
+clash (0.0.21) unstable; urgency=medium
+
+  * cleanup
+  * fix erase
+
+ -- André Roth <neolynx@gmail.com>  Wed, 05 Oct 2022 10:39:29 +0200
+
 clash (0.0.20) unstable; urgency=medium
 
   * support csi setmode
