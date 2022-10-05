@@ -504,17 +504,17 @@ class ClashTerminal:
         curses.curs_set(1)
 
     def ansi_report(self, g):
-        self.log(f"report {g}")
         code = None
-        if len(g) > 1:
+        if len(g) > 0:
             try:
-                code = int(g[1])
+                code = int(g[0])
             except Exception:
                 pass
 
         if code == 6:  # get cursoe pos
             if self.shell_input:
-                self.shell_input(f"\x1b[{self.col};{self.row}R".encode())  # ^[<v>;<h>R
+                self.log(f"report: cursor at {self.row + 1} {self.col + 1}")
+                self.shell_input(f"\x1b[{self.row + 1};{self.col + 1}R".encode())
         else:
             self.log(f"todo: report code {code}")
 
@@ -707,17 +707,17 @@ class ClashTerminal:
                 r"\[;?\?0c": self.ansi_show_cursor,
                 r"(\)0)": self.ansi_unhandled,  # )0 Start / (0 Select VT100 graphics mapping
                 r"\[;?(\d+);(\d+)r": self.ansi_set_margin,
-                r"(\[;?(\d+)n)": self.ansi_report,
+                r"\[;?(\d+)n": self.ansi_report,
                 r"\[;?(\d+)d": self.ansi_move_row,
                 r"\[;?\?(\d+)([hl])": self.dec_private_modes,
                 r"\[(\d+)([hl])": self.csi_set_mode,
                 r"(\[;??1000l)": self.ansi_unhandled,  # X11 Mouse Reporting
                 r"(\[;??2004h)": self.ansi_unhandled,
                 r"(\[;?\?(\d);(\d)l)": self.ansi_unhandled,
-                r"\[;?(-?\d*)A": self.ansi_move_up,
-                r"\[;?(-?\d*)B": self.ansi_move_down,
-                r"\[;?(-?\d*)C": self.ansi_move_right,
-                r"\[;?(-?\d*)D": self.ansi_move_left,
+                r"\[;?(\d*)A": self.ansi_move_up,
+                r"\[;?(\d*)B": self.ansi_move_down,
+                r"\[;?(\d*)C": self.ansi_move_right,
+                r"\[;?(\d*)D": self.ansi_move_left,
                 r"\[;?(\d*)G": self.ansi_position_col,
                 r"\[;?(\d+);(\d+)H": self.ansi_position,
                 r"\[;?(\d+)H": self.ansi_position,
