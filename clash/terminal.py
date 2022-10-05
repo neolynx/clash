@@ -450,7 +450,15 @@ class ClashTerminal:
 
         if len(g) > 0:
             if g[0] == "0" or g[0] == "":  # J / 0J: erase from cursor until end of screen
-                self.log(f"todo: erase from cursor until end of screen")
+                self.log(f"erase: until end of screen")
+                self.pad.addstr(self.row, self.col, " " * (self.cols - self.col), self.get_color())
+                self.row += 1
+                blank = " " * self.cols
+                for r in range(self.row, self.rows):
+                    try:
+                        self.pad.addstr(r, 0, blank, self.get_color())
+                    except Exception:
+                        self.log(f"err: {r} 0 ' ' * {self.cols}")
 
             elif g[0] == "1":  # 1J: erase from cursor to beginning of screen
                 self.log(f"todo: erase scrollback")
