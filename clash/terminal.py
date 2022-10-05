@@ -25,6 +25,13 @@ class ClashTerminal:
         self.colors = {}
         self.charset_lines = False
 
+        # dec
+        self.dec_bracketed_paste_mode = False
+
+        # vt100
+        self.saved_row = self.row
+        self.saved_col = self.col
+
     def start(self, cols=0, rows=0):
         self.screen = curses.initscr()
         self.height, self.width = self.screen.getmaxyx()
@@ -386,6 +393,11 @@ class ClashTerminal:
         elif len(g) == 1:
             col = g[0]
             self.col = int(col) - 1
+
+        if self.row < 0:
+            self.row = 0
+        elif self.row >= self.rows:
+            self.row = self.rows - 1
         self.log(f"pos: {self.row} {self.col}")
         try:
             self.move(self.row, self.col)
@@ -591,6 +603,10 @@ class ClashTerminal:
         if opt == 1:
             self.log(f"todo: dec: Application Cursor Keys {val}")
             # https://documentation.help/PuTTY/config-appcursor.html
+            if val:
+                self.ansi_hide_cursor()
+            else:
+                self.ansi_show_cursor()
 
         elif opt == 4:
             self.log(f"todo: dec: insert mode {val}")
@@ -635,10 +651,31 @@ class ClashTerminal:
 
         elif opt == 2004:
             self.log(f"todo: dec: Set bracketed paste mode {val}")
+            self.dec_bracketed_paste_mode = val
             # https://cirw.in/blog/bracketed-paste
 
         else:
             self.log(f"todo: dec {opt} {val}")
+
+    def esc_code(self, g):  # vt100 ?
+        opt = g[0]
+        try:
+            opt = int(opt)
+        except Exception:
+            pass
+
+        if opt == 7:
+            self.log(f"vt100: save cursor")
+            self.saved_row = self.row
+            self.saved_col = self.col
+
+        elif opt == 8:
+            self.log(f"vt100: restore cursor")
+            self.row = self.saved_row
+            self.col = self.saved_col
+
+        else:
+            self.log(f"todo: vt100: {opt}")
 
     def xterm_set_window_title(self, g):
         # self.log(f"window title: {g[0]}")
@@ -657,7 +694,7 @@ class ClashTerminal:
         ansi = {
                 r"\[([;\d]*)m": self.ansi_color,
 
-                r"(\d)": self.ansi_unhandled,
+                r"(\d)": self.esc_code,
                 r"\[;?\?1c": self.ansi_hide_cursor,
                 r"\[;?\?0c": self.ansi_show_cursor,
                 r"(\)0)": self.ansi_unhandled,  # )0 Start / (0 Select VT100 graphics mapping
@@ -693,7 +730,7 @@ class ClashTerminal:
                 r"(\]10;\?\x07)": self.ansi_unhandled,
                 r"(\]11;\?\x07)": self.ansi_unhandled,
                 r"(\]12;([^\x07]+)\x07)": self.ansi_unhandled,
-                r"(\[;?2(\d);(\d)t)": self.ansi_unhandled,
+                r"(\[;?2(\d);(\d)t)": self.ansi_unhandled,     # Window manipulation (XTWINOPS)
                 r"(\[;?2(\d);(\d);(\d)t)": self.ansi_unhandled,
                 r"(\[;?>(\d);(\d?)m)": self.ansi_unhandled,
                 r"(=)": self.ansi_keypad,

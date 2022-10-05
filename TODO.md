@@ -80,3 +80,48 @@ clr: ['38;5;245']
 clr: #8: 245 -1 0
 put: 31x0: /qwe
 
+
+vim: scroll down over flake8 err
+
+pty: b'\x1b[?25l\x1b[2;33r\x1b[m\x1b[38;5;245m\x1b[33;1H\r\n\x1b[1;35r\x1b[33;1H\x1b[38;5;245m\x1b[48;5;242m  \x1b[m\x1b[38;5;245m\x1b[38;5;240m\x1b[48;5;235m 92 \x1b[m\x1b[38;5;245m\x1b[8C\x1b[38;5;64mif\x1b[m\x1b[38;5;245m self.col + length > self.cols:\x1b[34;128H\x1b[1m\x1b[38;5;230m\x1b[48;5;245m2/\x1b[33;19H\x1b[?25h'
+cur: hide
+scroll margin: 1 32
+pos: 32 0
+chr: CR 32
+chr: LF
+pos: scroll up
+scroll margin: 0 34
+pos: 32 0
+mov: right 8 from 6
+pos: 33 127
+pos: 32 18
+cur: show
+
+pty: b'\x1b[?25l\x1b[2;33r\x1b[m\x1b[38;5;245m\x1b[33;1H\r\n\x1b[1;35r\x1b[33;1H\x1b[1m\x1b[38;5;124m>>\x1b[m\x1b[38;5;245m\x1b[38;5;240m\x1b[48;5;235m 93 \x1b[m\x1b[38;5;245m\x1b[12Cself.log(f\x1b[38;5;37m"err: truncating {length} to {self.cols - self.col - 1} rest: {bytes(text[self.cols - self.col - 1:].encode(\x1b[m\x1b[38;5;245m\x1b]12;%p1%s\x07\x1b[38;5;37m)\x1b[m\x1b[38;5;245m\x1b[38;5;37m)}"\x1b[m\x1b[38;5;245m)\x1b[34;128H\x1b[1m\x1b[38;5;230m\x1b[48;5;245m3/\x1b[33;19H\x1b[?25h'
+cur: hide
+scroll margin: 1 32
+pos: 32 0
+chr: CR 32
+chr: LF
+pos: scroll up
+scroll margin: 0 34
+pos: 32 0
+mov: right 12 from 6
+todo: esc seq '\x1b]12;%p1%s'
+pos: 33 127
+pos: 32 18
+cur: show
+pty: b'\x1b[?25l\r\n\r\n\x1b[m\x1b[38;5;245m:\x1b[?2004hechomsg a:message\r[flake8] line too long (135 > 130 characters) [E]\x1b[33;19H\x1b[?25h'
+cur: hide
+chr: CR 32
+chr: LF
+chr: CR 33
+chr: LF
+pos: scroll up
+todo: dec: Set bracketed paste mode True
+chr: CR 33
+pos: 32 18
+cur: show
+
+
+
