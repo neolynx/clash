@@ -522,11 +522,11 @@ class ClashTerminal:
         self.pad.clear()
 
     def ansi_set_margin(self, g):
-        self.margin_top = int(g[0]) - 1
-        self.margin_bottom = int(g[1]) - 1
+        self.margin_top = int(g[0])
+        self.margin_bottom = int(g[1])
         # FIXME: check negative
         try:
-            self.pad.setscrreg(self.margin_top, self.margin_bottom)
+            self.pad.setscrreg(self.margin_top - 1, self.margin_bottom - 1)
         except Exception:
             pass
         self.row = self.margin_top
