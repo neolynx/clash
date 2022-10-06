@@ -635,6 +635,9 @@ class ClashTerminal:
         elif opt == 1000:
             self.log(f"todo: dec: X11 mouse {val}")
 
+        elif opt == 1006:  # Mouse Reporting Format Digits
+            self.log(f"todo: dec: X11 mouse format digits {val}")
+
         elif opt == 1049:
             self.log(f"dec: Save cursor and switch to alternate buffer clearing it {val}")
             if val is True:
