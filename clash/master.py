@@ -93,7 +93,7 @@ class ClashMaster:
         await self.stdin.start(self.handle_stdin)
 
         self.log("idle loop")
-        while self.up and self.shell.up:
+        while self.up and self.shell.up and self.stdin.up:
             await asyncio.sleep(1)
 
         self.log("stdin: stopping...")

@@ -63,11 +63,11 @@ class ClashSlave:
         await self.stdin.start(self.handle_stdin)
 
         self.log("idle loop")
-        while self.up:
+        while self.up and self.stdin.up:
             await asyncio.sleep(1)
 
         self.log("stdin: stopping...")
-        self.stdin.stop()
+        await self.stdin.stop()
         self.log("slave: stopping...")
         await self.stop_slave_worker()
         self.log("terminal: stopping...")
@@ -87,8 +87,6 @@ class ClashSlave:
         return True
 
     async def run_slave_worker(self, loop):
-        self.slave_worker_done = loop.create_future()
-
         async def worker():
             while self.up:
                 msg = await self.ws.receive()
@@ -104,12 +102,11 @@ class ClashSlave:
                     break
             self.up = False
             await self.ws.close()
-            self.slave_worker_done.set_result(True)
-        asyncio.create_task(worker())
+        self.task = asyncio.create_task(worker())
 
     async def stop_slave_worker(self):
         self.up = False
-        return await(self.slave_worker_done)
+        self.task.cancel()
 
     async def handle_slave_msg(self, msg):
         data = json.loads(msg)
