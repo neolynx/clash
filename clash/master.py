@@ -29,33 +29,12 @@ class ClashMaster:
     def sig_handler(self, signame):
         if signame == "SIGINT" or signame == "SIGTERM":
             self.shell.write("\x03".encode())
-            return
         elif signame == "SIGTSTP":
             self.shell.write("\x1a".encode())
-            return
         elif signame == "SIGWINCH":
-            self.log(f"sig: {signame}")
             self.sigqueue.put_nowait(signame)
-            return
         else:
             self.log(f"todo: sig: {signame}")
-            return
-        self.log(f"sig: {signame}")
-
-        current_process = psutil.Process()
-        children = current_process.children(recursive=True)
-        for child in children:
-            tgid = None
-            with open(f"/proc/{child.pid}/stat", "r") as f:
-                line = f.readline()
-                tgid = int(line.split(" ")[7].strip())
-            if tgid == child.pid:  # foreground process
-                self.log(child)
-                try:
-                    os.kill(child.pid, signum)
-                except Exception:
-                    pass
-                break
 
     async def run(self):
         loop = asyncio.get_event_loop()
@@ -64,7 +43,6 @@ class ClashMaster:
             while self.up:
                 signame = await self.sigqueue.get()
                 if signame == "SIGWINCH":
-                    self.log(f"sigworker: got {signame}")
                     await self.resize()
 
         loop.create_task(sig_worker())

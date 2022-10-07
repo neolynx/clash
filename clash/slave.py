@@ -122,7 +122,6 @@ class ClashSlave:
             return False
         elif "resize" in data:
             self.cols, self.rows = data.get("resize")
-            self.log(f"resize: {self.cols} {self.rows}")
             self.terminal.resize(full=False, inner=True, cols=self.cols - 1, rows=self.rows - 1)
         else:
             self.log(f"cmd: unhandled command {data.keys()}")
