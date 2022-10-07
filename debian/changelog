@@ -1,3 +1,10 @@
+clash (0.0.24) unstable; urgency=medium
+
+  * resize shell
+  * fix border background on resize
+
+ -- André Roth <neolynx@gmail.com>  Fri, 07 Oct 2022 11:38:15 +0200
+
 clash (0.0.23) unstable; urgency=medium
 
   * sync color map
