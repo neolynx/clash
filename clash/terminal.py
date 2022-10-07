@@ -37,7 +37,8 @@ class ClashTerminal:
         self.saved_row = self.row
         self.saved_col = self.col
 
-    def start(self, cols=0, rows=0):
+    def start(self, cols=0, rows=0, session_id=" clash "):
+        self.session_id = session_id
         self.screen = curses.initscr()
 
         self.height, self.width = self.screen.getmaxyx()
@@ -106,11 +107,14 @@ class ClashTerminal:
         if self.less_rows and self.less_cols:
             corner = "↘"
 
-        self.color_fg = 61
+        self.color_fg = 69
         self.color_bg = 0
         self.flags = 0
         curses.curs_set(0)
-        self.screen.addstr(row, 0, bottom * col, self.get_color())
+        session = f"⟨ {self.session_id} ⟩"
+        self.screen.addstr(row, 0, bottom * (col - len(session) - 7), self.get_color())
+        self.screen.addstr(row, col - len(session) - 7, session, self.get_color())
+        self.screen.addstr(row, col - 7, bottom * 7, self.get_color())
         for i in range(0, row):
             self.screen.addstr(i, col, right, self.get_color())
         # writing to bottom right corner throws an exception, but works
