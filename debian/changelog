@@ -1,3 +1,11 @@
+clash (0.0.23) unstable; urgency=medium
+
+  * sync color map
+  * resize
+  * document dec private option 1006
+
+ -- André Roth <neolynx@gmail.com>  Fri, 07 Oct 2022 08:41:53 +0200
+
 clash (0.0.22) unstable; urgency=medium
 
   * fix scroll
