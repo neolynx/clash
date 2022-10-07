@@ -900,3 +900,44 @@ class ClashTerminal:
         self.cols = cols
         self.rows = rows
         self.pad.resize(self.rows, self.cols)
+
+    def dump(self):
+        msg = {"screen": {
+                  "rows": self.rows,
+                  "cols": self.cols,
+                  "col": self.col,
+                  "row": self.row,
+                  "color_fg": self.color_fg,
+                  "color_bg": self.color_bg,
+                  "color_flags": self.flags,
+                  "dump": [],
+                  "colors": self.colors}}
+        for row in range(0, self.rows):
+            for col in range(0, self.cols):
+                c = self.pad.inch(row, col)
+                msg["screen"]["dump"].append(c)
+        return msg
+
+    def restore(self, scrinit):
+        for clr in scrinit["colors"]:
+            c = int(clr)
+            fg = c % 256
+            bg = (c - fg) // 256
+            curses.init_pair(scrinit["colors"][clr] + 1, fg, bg)
+
+        for r in range(0, scrinit['rows']):
+            for c in range(0, scrinit['cols']):
+                ch = scrinit['dump'][r * scrinit['cols'] + c]
+                try:
+                    self.pad.addch(r, c, ch)
+                except Exception as exc:
+                    self.log(f"todo: {exc} {r} {c} {ch}")
+
+        self.color_fg = scrinit['color_fg']
+        self.color_bg = scrinit['color_bg']
+        self.color_flags = scrinit['color_flags']
+        self.col = scrinit['col']
+        self.row = scrinit['row']
+        self.log(f"mov: {self.row}, {self.col}")
+        self.move_cursor(self.row, self.col)
+        self.refresh()

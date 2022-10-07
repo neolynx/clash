@@ -55,7 +55,7 @@ class ClashSlave:
             # loop.add_signal_handler(getattr(signal, signame), lambda signame=signame: asyncio.create_task(sig_handler(signame)))
 
         self.terminal.start(self.cols, self.rows)
-        self.init_screen()
+        self.terminal.restore(self.scrinit)
 
         self.log("stdin: starting")
         await self.stdin.start(self.handle_stdin)
@@ -115,7 +115,6 @@ class ClashSlave:
             self.scrinit = data.get("screen")
             self.rows = self.scrinit['rows']
             self.cols = self.scrinit['cols']
-            self.log(f"slv: screen info {self.scrinit['cols']}x{self.scrinit['rows']}")
             self.screen_data_available.set_result(True)
         elif "output" in data:
             data = base64.b64decode(data.get("output"))
@@ -132,24 +131,6 @@ class ClashSlave:
         else:
             self.log(f"cmd: unhandled command {data.keys()}")
         return True
-
-    def init_screen(self):
-        for r in range(0, self.scrinit['rows']):
-            for c in range(0, self.scrinit['cols']):
-                ch = self.scrinit['dump'][r * self.scrinit['cols'] + c]
-                try:
-                    self.terminal.pad.addch(r, c, ch)
-                except Exception as exc:
-                    self.log(f"todo: {exc} {r} {c} {ch}")
-
-        self.terminal.color_fg = self.scrinit['color_fg']
-        self.terminal.color_bg = self.scrinit['color_bg']
-        self.terminal.color_flags = self.scrinit['color_flags']
-        self.terminal.col = self.scrinit['col']
-        self.terminal.row = self.scrinit['row']
-        self.log(f"mov: {self.terminal.row}, {self.terminal.col}")
-        self.terminal.move_cursor(self.terminal.row, self.terminal.col)
-        self.terminal.refresh()
 
     async def handle_stdin(self, data):
         await self.ws.send_str(json.dumps({"input": base64.b64encode(data).decode()}))
