@@ -107,6 +107,7 @@ class ClashTerminal:
             corner = "↘"
 
         self.color_fg = 61
+        self.color_bg = 0
         self.flags = 0
         curses.curs_set(0)
         self.screen.addstr(row, 0, bottom * col, self.get_color())
