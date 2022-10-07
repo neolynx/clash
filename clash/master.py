@@ -182,5 +182,5 @@ class ClashMaster:
     async def resize(self):
         cols, rows = self.terminal.resize()
         self.terminal.resize_terminal(cols - 1, rows - 1)
-        # self.shell.resize(cols, rows)
+        self.shell.resize(cols - 1, rows - 1)
         await self.ws.send_str(json.dumps({"resize": [cols, rows]}))
