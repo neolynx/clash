@@ -52,7 +52,6 @@ class ClashSlave:
         self.log("terminal: starting")
         for signame in {'SIGINT', 'SIGTERM', 'SIGTSTP', 'SIGCONT'}:
             loop.add_signal_handler(getattr(signal, signame), functools.partial(sig_handler, signame, self.signal_queue))
-            # loop.add_signal_handler(getattr(signal, signame), lambda signame=signame: asyncio.create_task(sig_handler(signame)))
 
         self.terminal.start(self.cols, self.rows)
         self.terminal.restore(self.scrinit)
@@ -124,10 +123,7 @@ class ClashSlave:
         elif "resize" in data:
             self.cols, self.rows = data.get("resize")
             self.log(f"resize: {self.cols} {self.rows}")
-            self.terminal.resize_terminal(self.cols - 1, self.rows - 1)
-            self.terminal.screen.clear()
-            self.terminal.update_border()
-            self.terminal.refresh()
+            self.terminal.resize(full=False, cols=self.cols - 1, rows=self.rows - 1)
         else:
             self.log(f"cmd: unhandled command {data.keys()}")
         return True

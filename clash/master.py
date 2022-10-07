@@ -77,15 +77,14 @@ class ClashMaster:
         for signame in {'SIGINT', 'SIGTERM', 'SIGTSTP', 'SIGWINCH'}:
             loop.add_signal_handler(getattr(signal, signame), functools.partial(self.sig_handler, signame))
 
-        cols, rows = self.terminal.start()
-
         self.log("master: starting")
         self.session_ready = loop.create_future()
         await self.run_master_worker(loop)
         self.session_id = await(self.session_ready)
 
-        self.terminal.input(f"\r\n  -= collaboration shell =-\r\n".encode())
-        self.terminal.input(f"       clash {self.session_id}\r\n\r\n".encode())
+        cols, rows = self.terminal.start(session_id=self.session_id)
+        self.terminal.input(f"\r\n \x1b[38;5;69m\x1b[48;5;0m -= collaboration shell =-".encode())
+        self.terminal.input(f"  clash {self.session_id} \x1b[m\r\n\r\n".encode())
 
         self.log("shell: starting")
         await self.shell.start(self.handle_terminal, cols, rows)
@@ -180,7 +179,6 @@ class ClashMaster:
         self.log("master: terminated")
 
     async def resize(self):
-        cols, rows = self.terminal.resize()
-        self.terminal.resize_terminal(cols - 1, rows - 1)
+        cols, rows = self.terminal.resize(full=True)
         self.shell.resize(cols - 1, rows - 1)
         await self.ws.send_str(json.dumps({"resize": [cols, rows]}))
