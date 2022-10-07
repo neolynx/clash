@@ -179,6 +179,6 @@ class ClashMaster:
         self.log("master: terminated")
 
     async def resize(self):
-        cols, rows = self.terminal.resize(full=True)
+        cols, rows = self.terminal.resize(full=True, inner=True)
         self.shell.resize(cols - 1, rows - 1)
         await self.ws.send_str(json.dumps({"resize": [cols, rows]}))

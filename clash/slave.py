@@ -32,8 +32,11 @@ class ClashSlave:
         async def signal_worker():
             while True:
                 sig = await self.signal_queue.get()
-                d = json.dumps({"signal": sig})
-                await self.ws.send_str(d)
+                if sig == "SIGWINCH":
+                    self.terminal.resize(full=True, inner=False)
+                else:
+                    d = json.dumps({"signal": sig})
+                    await self.ws.send_str(d)
 
         asyncio.create_task(signal_worker())
 
@@ -50,7 +53,7 @@ class ClashSlave:
         await(self.screen_data_available)
 
         self.log("terminal: starting")
-        for signame in {'SIGINT', 'SIGTERM', 'SIGTSTP', 'SIGCONT'}:
+        for signame in {'SIGINT', 'SIGTERM', 'SIGTSTP', 'SIGWINCH'}:
             loop.add_signal_handler(getattr(signal, signame), functools.partial(sig_handler, signame, self.signal_queue))
 
         self.terminal.start(self.cols, self.rows)
@@ -123,7 +126,7 @@ class ClashSlave:
         elif "resize" in data:
             self.cols, self.rows = data.get("resize")
             self.log(f"resize: {self.cols} {self.rows}")
-            self.terminal.resize(full=False, cols=self.cols - 1, rows=self.rows - 1)
+            self.terminal.resize(full=False, inner=True, cols=self.cols - 1, rows=self.rows - 1)
         else:
             self.log(f"cmd: unhandled command {data.keys()}")
         return True

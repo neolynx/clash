@@ -892,21 +892,24 @@ class ClashTerminal:
             self.log(f"todo: err: pad.refresh")
             self.log(exc)
 
-    def resize(self, full=False, rows=None, cols=None):
+    def resize(self, full=False, inner=True, rows=None, cols=None):
         if full:
             height, width, _, _ = unpack('HHHH', ioctl(0, TIOCGWINSZ, pack('HHHH', 0, 0, 0, 0)))
             self.log(f"resize: screen {width}x{height}")
             self.height = height
             self.width = width
             curses.resize_term(self.height, self.width)
-            self.cols = self.width - 1
-            self.rows = self.height - 1
+            if inner:
+                self.cols = self.width - 1
+                self.rows = self.height - 1
         elif rows is None or cols is None:
             return
         else:
             self.cols = cols
             self.rows = rows
-        self.pad.resize(self.rows, self.cols)
+
+        if inner:
+            self.pad.resize(self.rows, self.cols)
 
         self.screen.clear()
         self.update_border()
