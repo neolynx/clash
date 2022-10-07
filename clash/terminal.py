@@ -512,7 +512,10 @@ class ClashTerminal:
         if len(g) > 0:
             if g[0] == "0" or g[0] == "":  # J / 0J: erase from cursor until end of screen
                 self.log(f"erase: until end of screen")
-                self.pad.addstr(self.row, self.col, " " * (self.cols - self.col), self.get_color())
+                try:
+                    self.pad.addstr(self.row, self.col, " " * (self.cols - self.col), self.get_color())
+                except Exception:
+                    pass
                 self.row += 1
                 blank = " " * self.cols
                 for r in range(self.row, self.rows):
@@ -710,10 +713,11 @@ class ClashTerminal:
                         c = self.pad.inch(row, col)
                         self.savedbuffer.append(c)
             else:
+                # FIXME: save buffer rows,cols in case of resize
                 for r in range(0, self.rows):
                     for c in range(0, self.cols):
-                        ch = self.savedbuffer[r * self.cols + c]
                         try:
+                            ch = self.savedbuffer[r * self.cols + c]
                             self.pad.addch(r, c, ch)
                         except Exception as exc:
                             self.log(f"todo: {exc} {r} {c} {ch}")
