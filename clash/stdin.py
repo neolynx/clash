@@ -17,7 +17,6 @@ class ClashStdin:
     async def start(self, stdin_handler, hotkey_handler=None):
         self.hotkey_handler = hotkey_handler
 
-    async def start(self, stdin_handler):
         async def handler():
             self.log("stdin: handler started")
             self.reader = asyncio.StreamReader()
