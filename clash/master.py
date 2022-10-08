@@ -2,7 +2,6 @@
 
 import os
 import json
-import psutil
 import base64
 import asyncio
 import aiohttp
@@ -89,6 +88,8 @@ class ClashMaster:
             session_id = data.get("session")
             self.session_ready.set_result(session_id)
         elif "init" in data:
+            username = data.get("init")
+            self.log(f"join: {username}")
             msg = self.terminal.dump()
             if self.ws:
                 try:
@@ -107,8 +108,13 @@ class ClashMaster:
         async def worker():
             while self.up:
                 msg = await self.ws.receive()
+
                 if msg.type == aiohttp.WSMsgType.TEXT:
-                    await self.handle_server_msg(msg.data)
+                    try:
+                        await self.handle_server_msg(msg.data)
+                    except Exception:
+                        self.log(traceback.format_exc())
+
                 elif msg.type == aiohttp.WSMsgType.CLOSED:
                     break
                 elif msg.type == aiohttp.WSMsgType.ERROR:

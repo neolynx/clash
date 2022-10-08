@@ -7,6 +7,7 @@ import aiohttp
 import signal
 import functools
 import traceback
+import os
 
 from .terminal import ClashTerminal
 from .stdin import ClashStdin
@@ -91,6 +92,7 @@ class ClashSlave:
 
     async def run_slave_worker(self, loop):
         async def worker():
+            await self.ws.send_str(json.dumps({"init": os.getlogin()}))
             while self.up:
                 msg = await self.ws.receive()
                 if msg.type == aiohttp.WSMsgType.TEXT:

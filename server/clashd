@@ -56,8 +56,6 @@ class ClashServer():
 
         self.sessions[session_id][1].append(slave_ws)
 
-        await master_ws.send_str(json.dumps("init"))
-
         while True:
             try:
                 msg = await slave_ws.receive()
