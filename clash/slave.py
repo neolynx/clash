@@ -60,7 +60,7 @@ class ClashSlave:
         self.terminal.restore(self.scrinit)
 
         self.log("stdin: starting")
-        await self.stdin.start(self.handle_stdin)
+        await self.stdin.start(self.handle_stdin, hotkey_handler=self.hotkey_handler)
 
         self.log("idle loop")
         while self.up and self.stdin.up:
@@ -129,3 +129,10 @@ class ClashSlave:
 
     async def handle_stdin(self, data):
         await self.ws.send_str(json.dumps({"input": base64.b64encode(data).decode()}))
+
+    async def hotkey_handler(self, key):
+        if key == b'd':  # Ctrl-A d
+            self.up = False
+            await self.stdin.stop()
+        else:
+            self.log(f"unknown hotkey '{key}'")
