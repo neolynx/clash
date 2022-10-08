@@ -12,6 +12,10 @@ class ClashStdin:
     def __init__(self, log=None):
         self.log = log
         self.up = True
+        self.gotCtrlA = False
+
+    async def start(self, stdin_handler, hotkey_handler=None):
+        self.hotkey_handler = hotkey_handler
 
     async def start(self, stdin_handler):
         async def handler():
@@ -33,6 +37,19 @@ class ClashStdin:
 
             while self.up:
                 data = await self.reader.read(1024)
+                if self.hotkey_handler:
+                    if data == b'\x01':  # Ctrl-A
+                        if self.gotCtrlA:
+                            self.gotCtrlA = False
+                            # fallthrough: send real Ctrl-A
+                        else:
+                            self.gotCtrlA = True
+                            continue
+                    elif self.gotCtrlA:
+                        self.gotCtrlA = False
+                        await self.hotkey_handler(data)
+                        continue
+
                 if not data:
                     self.up = False
                     break
