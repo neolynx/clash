@@ -90,7 +90,11 @@ class ClashMaster:
             self.session_ready.set_result(session_id)
         elif "init" in data:
             msg = self.terminal.dump()
-            await self.ws.send_str(json.dumps(msg))
+            if self.ws:
+                try:
+                    await self.ws.send_str(json.dumps(msg))
+                except Exception:
+                    self.log(traceback.format_exc())
         elif "input" in data:
             data = base64.b64decode(data.get("input"))
             self.shell.write(data)
@@ -110,11 +114,12 @@ class ClashMaster:
                 elif msg.type == aiohttp.WSMsgType.ERROR:
                     break
             self.up = False
-            try:
-                await self.ws.send_str("{\"bye\":\"bye\"}")
-                await self.client_session.close()
-            except Exception:
-                pass
+            if self.ws:
+                try:
+                    await self.ws.send_str("{\"bye\":\"bye\"}")
+                    await self.client_session.close()
+                except Exception:
+                    pass
             self.master_worker.set_result(True)
         asyncio.create_task(worker())
 
@@ -133,7 +138,11 @@ class ClashMaster:
             self.log(traceback.format_exc())
 
         if self.ws:  # FIXME wait until initialized, mutex?
-            await self.ws.send_str(json.dumps({"output": base64.b64encode(data).decode()}))
+            try:
+                await self.ws.send_str(json.dumps({"output": base64.b64encode(data).decode()}))
+            except Exception:
+                self.log(traceback.format_exc())
+                self.ws = None
 
     async def init_master_connection(self):
         self.client_session = aiohttp.ClientSession()
@@ -148,15 +157,20 @@ class ClashMaster:
     async def stop_master_worker(self):
         self.log("master: terminating...")
         self.up = False
-        try:
-            await self.ws.send_str("{\"bye\":\"bye\"}")
-            await self.ws.close()
-        except Exception as exc:
-            self.log(f"master: {exc}")
+        if self.ws:
+            try:
+                await self.ws.send_str("{\"bye\":\"bye\"}")
+                await self.ws.close()
+            except Exception as exc:
+                self.log(f"master: {exc}")
         await(self.master_worker)
         self.log("master: terminated")
 
     async def resize(self):
         cols, rows = self.terminal.resize(full=True, inner=True)
         self.shell.resize(cols - 1, rows - 1)
-        await self.ws.send_str(json.dumps({"resize": [cols, rows]}))
+        if self.ws:
+            try:
+                await self.ws.send_str(json.dumps({"resize": [cols, rows]}))
+            except Exception:
+                self.log(traceback.format_exc())

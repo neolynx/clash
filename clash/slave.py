@@ -36,7 +36,10 @@ class ClashSlave:
                     self.terminal.resize(full=True, inner=False)
                 else:
                     d = json.dumps({"signal": sig})
-                    await self.ws.send_str(d)
+                    try:
+                        await self.ws.send_str(d)
+                    except Exception:
+                        self.log(traceback.format_exc())
 
         asyncio.create_task(signal_worker())
 
@@ -128,7 +131,10 @@ class ClashSlave:
         return True
 
     async def handle_stdin(self, data):
-        await self.ws.send_str(json.dumps({"input": base64.b64encode(data).decode()}))
+        try:
+            await self.ws.send_str(json.dumps({"input": base64.b64encode(data).decode()}))
+        except Exception:
+            self.log(traceback.format_exc())
 
     async def hotkey_handler(self, key):
         if key == b'd':  # Ctrl-A d
