@@ -56,7 +56,7 @@ class ClashSlave:
         for signame in {'SIGINT', 'SIGTERM', 'SIGTSTP', 'SIGWINCH'}:
             loop.add_signal_handler(getattr(signal, signame), functools.partial(sig_handler, signame, self.signal_queue))
 
-        self.terminal.start(self.cols, self.rows)
+        self.terminal.start(self.cols, self.rows, session_id=session_id)
         self.terminal.restore(self.scrinit)
 
         self.log("stdin: starting")
