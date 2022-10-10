@@ -19,6 +19,7 @@ class ClashServer():
         self.sessions = {}
 
     def run(self):
+        print("starting")
         web.run_app(self.app)
 
     async def master_handler(self, request):
@@ -44,6 +45,7 @@ class ClashServer():
                         self.log(traceback.format_exc())
                         continue
 
+                    print(data)
                     to = None
                     if "header" in data:
                         if "to" in data["header"]:
@@ -51,9 +53,12 @@ class ClashServer():
                         del data["header"]
 
                     if to is not None:
-                        if to < len(self.sessions[session_id][1])):
-                            self.sessions[session_id][1][to].send_str(json.dumps(data))
+                        print(f"send to {to}")
+                        if to < len(self.sessions[session_id][1]):
+                            print(f"sending ")
+                            await self.sessions[session_id][1][to].send_str(json.dumps(data))
                     else:
+                        print("broadcast")
                         for slave_ws in self.sessions[session_id][1]:
                             # print(f"master -> slave: {msg.data}")
                             await slave_ws.send_str(json.dumps(data))
@@ -90,7 +95,8 @@ class ClashServer():
                     data["header"] = {}
                     data["header"]["from"] = self.sessions[session_id][1].index(slave_ws)
 
-                    await master_ws.send_str(msg.data)
+                    print(data)
+                    await master_ws.send_str(json.dumps(data))
 
             except asyncio.CancelledError:
                 pass
