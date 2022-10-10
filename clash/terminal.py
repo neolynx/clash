@@ -4,6 +4,8 @@ import curses
 import curses.panel
 import re
 import traceback
+import os
+
 from struct import pack, unpack
 from fcntl import ioctl
 from termios import TIOCGWINSZ
@@ -29,6 +31,7 @@ class ClashTerminal:
         self.border_col = None
         self.less_rows = None
         self.less_cols = None
+        self.title = " clash "
 
         # dec
         self.dec_bracketed_paste_mode = False
@@ -111,8 +114,13 @@ class ClashTerminal:
         self.color_bg = 0
         self.flags = 0
         curses.curs_set(0)
+
+        self.screen.addstr(row, 0, bottom * 2, self.get_color())
+        self.screen.addstr(row, 2, self.title, self.get_color())
+        pos = 2 + len(self.title)
+
         session = f"⟨ {self.session_id} ⟩"
-        self.screen.addstr(row, 0, bottom * (col - len(session) - 7), self.get_color())
+        self.screen.addstr(row, pos, bottom * (col - len(session) - 7 - len(self.title) - 3), self.get_color())
         self.screen.addstr(row, col - len(session) - 7, session, self.get_color())
         self.screen.addstr(row, col - 7, bottom * 7, self.get_color())
         for i in range(0, row):
@@ -917,20 +925,19 @@ class ClashTerminal:
         return self.width, self.height
 
     def dump(self):
-        msg = {"screen": {
-                  "rows": self.rows,
-                  "cols": self.cols,
-                  "col": self.col,
-                  "row": self.row,
-                  "color_fg": self.color_fg,
-                  "color_bg": self.color_bg,
-                  "color_flags": self.flags,
-                  "dump": [],
-                  "colors": self.colors}}
+        msg = {"rows": self.rows,
+               "cols": self.cols,
+               "col": self.col,
+               "row": self.row,
+               "color_fg": self.color_fg,
+               "color_bg": self.color_bg,
+               "color_flags": self.flags,
+               "dump": [],
+               "colors": self.colors}
         for row in range(0, self.rows):
             for col in range(0, self.cols):
                 c = self.pad.inch(row, col)
-                msg["screen"]["dump"].append(c)
+                msg["dump"].append(c)
         return msg
 
     def restore(self, scrinit):
@@ -955,4 +962,9 @@ class ClashTerminal:
         self.row = scrinit['row']
         self.log(f"mov: {self.row}, {self.col}")
         self.move_cursor(self.row, self.col)
+        self.refresh()
+
+    def set_title(self, title):
+        self.title = title
+        self.update_border()
         self.refresh()

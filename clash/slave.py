@@ -19,6 +19,7 @@ class ClashSlave:
         self.log = log
         self.url = url
         self.up = True
+        self.host = ""
         self.terminal = ClashTerminal(log=log)
         self.stdin = ClashStdin(log=log)
         self.signal_queue = asyncio.Queue()
@@ -62,6 +63,7 @@ class ClashSlave:
 
         self.terminal.start(self.cols, self.rows, session_id=session_id)
         self.terminal.restore(self.scrinit)
+        self.terminal.set_title(f"[ @{self.host} ]")
 
         self.log("stdin: starting")
         await self.stdin.start(self.handle_stdin, hotkey_handler=self.hotkey_handler)
@@ -92,7 +94,10 @@ class ClashSlave:
 
     async def run_slave_worker(self, loop):
         async def worker():
-            await self.ws.send_str(json.dumps({"init": os.getlogin()}))
+            try:
+                await self.ws.send_str(json.dumps({"init": os.environ.get('USER')}))
+            except Exception:
+                self.log(traceback.format_exc())
             while self.up:
                 msg = await self.ws.receive()
                 if msg.type == aiohttp.WSMsgType.TEXT:
@@ -115,8 +120,11 @@ class ClashSlave:
 
     async def handle_slave_msg(self, msg):
         data = json.loads(msg)
-        if "screen" in data:
-            self.scrinit = data.get("screen")
+        if "init" in data:
+            initdata = data.get("init")
+            self.host = initdata.get("host")
+            self.log(f"host: {self.host}")
+            self.scrinit = initdata.get("screen")
             self.rows = self.scrinit['rows']
             self.cols = self.scrinit['cols']
             self.screen_data_available.set_result(True)
