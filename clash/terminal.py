@@ -120,7 +120,7 @@ class ClashTerminal:
         pos = 2 + len(self.title)
 
         session = f"⟨ {self.session_id} ⟩"
-        self.screen.addstr(row, pos, bottom * (col - len(session) - 7 - len(self.title) - 3), self.get_color())
+        self.screen.addstr(row, pos, bottom * (col - len(session) - 7 - len(self.title) - 2), self.get_color())
         self.screen.addstr(row, col - len(session) - 7, session, self.get_color())
         self.screen.addstr(row, col - 7, bottom * 7, self.get_color())
         for i in range(0, row):

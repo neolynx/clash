@@ -25,7 +25,7 @@ class ClashMaster:
         self.stdin = ClashStdin(log=log)
         self.sigqueue = asyncio.Queue()
         self.host = os.environ.get('USER', "nobody")
-        self.members = []
+        self.members = {}
 
     def sig_handler(self, signame):
         if signame == "SIGINT" or signame == "SIGTERM":
@@ -62,10 +62,10 @@ class ClashMaster:
         self.session_id = await(self.session_ready)
 
         cols, rows = self.terminal.start(session_id=self.session_id)
-        self.terminal.input(f"\r\n \x1b[38;5;69m\x1b[48;5;0m -= collaboration shell =-".encode())
-        self.terminal.input(f"  clash {self.session_id} \x1b[m\r\n\r\n".encode())
+        self.terminal.input(f"\x1b[38;5;69m\x1b[48;5;0m 🐧collaboration shell - join with:\r\n".encode())
+        self.terminal.input(f"clash {self.session_id} \x1b[m\r\n\r\n".encode())
 
-        self.terminal.set_title(f"[ {self.host} ]")
+        self.terminal.set_title(f"[ {self.host} ")
 
         self.log("shell: starting")
         await self.shell.start(self.handle_terminal, cols, rows)
@@ -88,18 +88,22 @@ class ClashMaster:
 
     async def handle_server_msg(self, msg):
         data = json.loads(msg)
+        slave_id = None
         if "header" in data:
             slave_id = data["header"]["from"]
             self.log(f"from {slave_id}")
+
         if "session" in data:
             session_id = data.get("session")
             self.session_ready.set_result(session_id)
-        elif "init" in data:
-            username = data.get("init")
-            self.log(f"join: {username}")
-            self.members.append(username)
-            members = ", ".join(self.members)
-            self.terminal.set_title(f"[ {self.host} ] <{members}>")
+        elif "join" in data:
+            username = data.get("join")
+            try:
+                await self.ws.send_str(json.dumps({"welcome": username}))
+            except Exception:
+                self.log(traceback.format_exc())
+            self.members[slave_id] = username
+            self.set_title()
             msg = {"init": {}, "header": {"to": slave_id}}
             msg["init"]["screen"] = self.terminal.dump()
             msg["init"]["host"] = self.host
@@ -113,6 +117,10 @@ class ClashMaster:
             self.shell.write(data)
         elif "signal" in data:
             self.sig_handler(data.get("signal"))
+        elif "leave" in data:
+            self.log(f"leave: {self.members[slave_id]}")
+            del self.members[slave_id]
+            self.set_title()
 
     async def run_master_worker(self, loop):
         self.master_worker = loop.create_future()
@@ -192,3 +200,9 @@ class ClashMaster:
                 await self.ws.send_str(json.dumps({"resize": [cols, rows]}))
             except Exception:
                 self.log(traceback.format_exc())
+
+    def set_title(self):
+        members = ", ".join(self.members.values())
+        if members:
+            members = " & " + members
+        self.terminal.set_title(f"[ {self.host}{members} ")

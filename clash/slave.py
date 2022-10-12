@@ -25,6 +25,7 @@ class ClashSlave:
         self.signal_queue = asyncio.Queue()
         loop = asyncio.get_event_loop()
         self.screen_data_available = loop.create_future()
+        self.members = []
 
     async def run(self, session_id):
 
@@ -63,7 +64,7 @@ class ClashSlave:
 
         self.terminal.start(self.cols, self.rows, session_id=session_id)
         self.terminal.restore(self.scrinit)
-        self.terminal.set_title(f"[ @{self.host} ]")
+        self.terminal.set_title(f"[ @{self.host}")
 
         self.log("stdin: starting")
         await self.stdin.start(self.handle_stdin, hotkey_handler=self.hotkey_handler)
@@ -95,7 +96,7 @@ class ClashSlave:
     async def run_slave_worker(self, loop):
         async def worker():
             try:
-                await self.ws.send_str(json.dumps({"init": os.environ.get('USER')}))
+                await self.ws.send_str(json.dumps({"join": os.environ.get('USER')}))
             except Exception:
                 self.log(traceback.format_exc())
             while self.up:
@@ -133,6 +134,11 @@ class ClashSlave:
             self.terminal.input(data)
         elif "bye" in data:
             return False
+        elif "welcome" in data:
+            member = data.get("welcome")
+            self.members.append(member)
+            members = ", ".join(self.members)
+            self.terminal.set_title(f"[ @{self.host} & {members} ")
         elif "resize" in data:
             self.cols, self.rows = data.get("resize")
             self.terminal.resize(full=False, inner=True, cols=self.cols - 1, rows=self.rows - 1)
