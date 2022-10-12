@@ -1,3 +1,10 @@
+clash (0.0.28) unstable; urgency=medium
+
+  * improve title
+  * clashd: handle leaves
+
+ -- André Roth <neolynx@gmail.com>  Wed, 12 Oct 2022 19:02:30 +0200
+
 clash (0.0.27) unstable; urgency=medium
 
   * support title footer and direct messages
