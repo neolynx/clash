@@ -803,7 +803,7 @@ class ClashTerminal:
                 r"\[;?(\d*)([XK])": self.ansi_erase_line,
                 r"\[;?(\d*)L": self.ansi_insert_lines,
                 r"\[;?(\d+)M": self.ansi_append_lines,
-                r"\[;?(\d+)P": self.ansi_delete_chars,
+                r"\[;?(\d*)P": self.ansi_delete_chars,
                 r"(\[;?(\d)S)": self.ansi_scroll_up,
                 r"\[;?(\d+)T": self.ansi_unhandled,  # CSI Ps T  Scroll down Ps lines (default = 1) (SD), VT420.
                 r"\[;?(\d+)@": self.insert_chars,  # CSI Ps @  Insert Ps (Blank) Character(s) (default = 1) (ICH).
@@ -812,6 +812,8 @@ class ClashTerminal:
                 r"(\]R)": self.ansi_unhandled,  # Reset Palette
                 r"\]0;([^\a]+)\a": self.xterm_set_window_title,
                 r"(\[;?>c)": self.ansi_secondary_device,
+                r"(\]1;([^\x07]+)\x07)": self.ansi_unhandled,  # set icon name
+                r"(\]2;([^\x07]+)\x07)": self.ansi_unhandled,  # set window title
                 r"(\]10;\?\x07)": self.ansi_unhandled,
                 r"(\]11;\?\x07)": self.ansi_unhandled,
                 r"(\]12;([^\x07]+)\x07)": self.ansi_unhandled,
