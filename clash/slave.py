@@ -113,6 +113,7 @@ class ClashSlave:
                     break
             self.up = False
             await self.ws.close()
+            self.log("slave: disconnect")
         self.task = asyncio.create_task(worker())
 
     async def stop_slave_worker(self):
@@ -132,8 +133,6 @@ class ClashSlave:
         elif "output" in data:
             data = base64.b64decode(data.get("output"))
             self.terminal.input(data)
-        elif "bye" in data:
-            return False
         elif "welcome" in data:
             member = data.get("welcome")
             self.members.append(member)

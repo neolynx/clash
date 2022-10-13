@@ -142,7 +142,6 @@ class ClashMaster:
             self.up = False
             if self.ws:
                 try:
-                    await self.ws.send_str("{\"bye\":\"bye\"}")
                     await self.client_session.close()
                 except Exception:
                     pass
@@ -185,7 +184,6 @@ class ClashMaster:
         self.up = False
         if self.ws:
             try:
-                await self.ws.send_str("{\"bye\":\"bye\"}")
                 await self.ws.close()
             except Exception as exc:
                 self.log(f"master: {exc}")
