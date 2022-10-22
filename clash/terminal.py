@@ -4,7 +4,6 @@ import curses
 import curses.panel
 import re
 import traceback
-import os
 
 from struct import pack, unpack
 from fcntl import ioctl
