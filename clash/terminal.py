@@ -276,8 +276,12 @@ class ClashTerminal:
                 elif param == 6:
                     self.log("todo: color flag 6")
                     self.flags |= curses.A_STANDOUT
-                elif param == 7:  # invert colors fg, bg
+
+                elif param == 7:
                     self.flags |= curses.A_REVERSE
+
+                elif param == 27:
+                    self.flags &= ~curses.A_REVERSE
 
                 elif param >= 30 and param <= 37:
                     self.color_fg = param - 30
@@ -299,6 +303,9 @@ class ClashTerminal:
                     self.color_fg = -1
                 elif param == 49:
                     self.color_bg = -1
+
+                else:
+                    self.log(f"todo: clr {param}")
 
             elif color256fg:
                 self.color_fg = param
