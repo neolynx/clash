@@ -31,6 +31,7 @@ class ClashTerminal:
         self.less_rows = None
         self.less_cols = None
         self.title = " clash "
+        self.cursor_visible = True
 
         # dec
         self.dec_bracketed_paste_mode = False
@@ -55,7 +56,6 @@ class ClashTerminal:
 
         curses.noecho()
         curses.cbreak()
-        # curses.curs_set(0)
         curses.nl()
         self.screen.keypad(1)
         self.screen.scrollok(False)
@@ -586,10 +586,12 @@ class ClashTerminal:
     def ansi_hide_cursor(self, *g):
         self.log("cur: hide")
         curses.curs_set(0)
+        self.cursor_visible = False
 
     def ansi_show_cursor(self, *g):
         self.log("cur: show")
         curses.curs_set(1)
+        self.cursor_visible = True
 
     def ansi_report(self, g):
         code = None
@@ -700,10 +702,6 @@ class ClashTerminal:
         if opt == 1:
             self.log(f"todo: dec: Application Cursor Keys {val}")
             # https://documentation.help/PuTTY/config-appcursor.html
-            if val:
-                self.ansi_hide_cursor()
-            else:
-                self.ansi_show_cursor()
 
         elif opt == 4:
             self.log(f"todo: dec: insert mode {val}")
@@ -897,7 +895,7 @@ class ClashTerminal:
     def move_cursor(self, row, col):
         if row >= self.rows or col >= self.cols:
             curses.curs_set(0)
-        else:  # FIXME: if was enabled before
+        elif self.cursor_visible:
             curses.curs_set(1)
 
         try:
