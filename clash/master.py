@@ -107,6 +107,7 @@ class ClashMaster:
             msg = {"init": {}, "header": {"to": slave_id}}
             msg["init"]["screen"] = self.terminal.dump()
             msg["init"]["host"] = self.host
+            msg["init"]["members"] = list(self.members.values())
             if self.ws:
                 try:
                     await self.ws.send_str(json.dumps(msg))
@@ -119,6 +120,10 @@ class ClashMaster:
             self.sig_handler(data.get("signal"))
         elif "leave" in data:
             self.log(f"leave: {self.members[slave_id]}")
+            try:
+                await self.ws.send_str(json.dumps({"leave": self.members[slave_id]}))
+            except Exception:
+                self.log(traceback.format_exc())
             del self.members[slave_id]
             self.set_title()
 

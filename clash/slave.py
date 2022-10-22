@@ -64,7 +64,9 @@ class ClashSlave:
 
         self.terminal.start(self.cols, self.rows, session_id=session_id)
         self.terminal.restore(self.scrinit)
-        self.terminal.set_title(f"[ @{self.host}")
+        self.log(self.members)
+
+        self.set_title()
 
         self.log("stdin: starting")
         await self.stdin.start(self.handle_stdin, hotkey_handler=self.hotkey_handler)
@@ -129,15 +131,21 @@ class ClashSlave:
             self.scrinit = initdata.get("screen")
             self.rows = self.scrinit['rows']
             self.cols = self.scrinit['cols']
+            self.members = initdata.get('members')
             self.screen_data_available.set_result(True)
         elif "output" in data:
             data = base64.b64decode(data.get("output"))
             self.terminal.input(data)
         elif "welcome" in data:
+            self.log(data)
             member = data.get("welcome")
             self.members.append(member)
-            members = ", ".join(self.members)
-            self.terminal.set_title(f"[ @{self.host} & {members} ")
+            self.set_title()
+        elif "leave" in data:
+            member = data.get("leave")
+            self.members.remove(member)
+            self.set_title()
+            pass
         elif "resize" in data:
             self.cols, self.rows = data.get("resize")
             self.terminal.resize(full=False, inner=True, cols=self.cols - 1, rows=self.rows - 1)
@@ -157,3 +165,7 @@ class ClashSlave:
             await self.stdin.stop()
         else:
             self.log(f"unknown hotkey '{key}'")
+
+    def set_title(self):
+        members = ", ".join(self.members)
+        self.terminal.set_title(f"[ @{self.host} & {members} ")
