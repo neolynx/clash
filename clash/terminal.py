@@ -153,6 +153,11 @@ class ClashTerminal:
             #     firstline.append(c)
             # self.scrollback.append(firstline)
 
+            # reset color attributes
+            self.flags = 0
+            self.color_fg = -1
+            self.color_bg = -1
+
             self.pad.scrollok(True)
             self.pad.scroll()
             self.pad.scrollok(False)
@@ -525,7 +530,12 @@ class ClashTerminal:
     def ansi_erase(self, g):
 
         if len(g) > 0:
-            if g[0] == "0" or g[0] == "":  # J / 0J: erase from cursor until end of screen
+            param = 0
+            try:
+                param = int(g[0])
+            except Exception:
+                pass
+            if param == 0:  # J / 0J: erase from cursor until end of screen
                 self.log(f"erase: until end of screen")
                 try:
                     self.pad.addstr(self.row, self.col, " " * (self.cols - self.col), self.get_color())
@@ -539,10 +549,10 @@ class ClashTerminal:
                     except Exception:
                         self.log(f"err: {r} 0 ' ' * {self.cols}")
 
-            elif g[0] == "1":  # 1J: erase from cursor to beginning of screen
+            elif param == 1:  # 1J: erase from cursor to beginning of screen
                 self.log(f"todo: erase scrollback")
 
-            elif g[0] == "2":  # 2J: erase entire screen
+            elif param == 2:  # 2J: erase entire screen
                 self.log(f"erase screen")
                 self.row = 0
                 self.col = 0
@@ -554,7 +564,7 @@ class ClashTerminal:
                     except Exception:
                         self.log(f"err: {r} 0 ' ' * {self.cols}")
 
-            elif g[0] == "3":  # 3J: erase saved lines / scrollback
+            elif param == 3:  # 3J: erase saved lines / scrollback
                 self.log(f"todo: erase scrollback")
 
             else:
@@ -727,6 +737,7 @@ class ClashTerminal:
                     for col in range(0, self.cols):
                         c = self.pad.inch(row, col)
                         self.savedbuffer.append(c)
+                self.ansi_erase([2])
             else:
                 # FIXME: save buffer rows,cols in case of resize
                 for r in range(0, self.rows):
