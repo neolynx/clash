@@ -618,7 +618,7 @@ class ClashTerminal:
             self.pad.setscrreg(self.margin_top - 1, self.margin_bottom - 1)
         except Exception:
             pass
-        self.row = self.margin_top
+        self.row = self.margin_top - 1
         self.col = 0
         self.move_cursor(self.row, self.col)
         self.log(f"scroll margin: {self.margin_top} {self.margin_bottom}")
