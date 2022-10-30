@@ -8,6 +8,7 @@ import aiohttp
 import signal
 import functools
 import traceback
+import re
 
 from .terminal import ClashTerminal
 from .shell import ClashShell
@@ -71,7 +72,7 @@ class ClashMaster:
         await self.shell.start(self.handle_terminal, cols, rows)
 
         self.log("stdin: starting")
-        await self.stdin.start(self.handle_stdin)
+        await self.stdin.start(self.terminal.handle_stdin)
 
         self.log("idle loop")
         while self.up and self.shell.up and self.stdin.up:
@@ -152,9 +153,6 @@ class ClashMaster:
                     pass
             self.master_worker.set_result(True)
         asyncio.create_task(worker())
-
-    async def handle_stdin(self, data):
-        self.shell.write(data)
 
     async def handle_terminal(self, data):
         if not data:

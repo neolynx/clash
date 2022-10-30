@@ -42,6 +42,10 @@ class ClashTerminal:
 
     def start(self, cols=0, rows=0, session_id=" clash "):
         self.session_id = session_id
+
+        # configure mouse
+        print("\x1b[?1000h\x1b[?1006h")
+
         self.screen = curses.initscr()
 
         self.height, self.width = self.screen.getmaxyx()
@@ -81,6 +85,8 @@ class ClashTerminal:
         self.screen.keypad(False)
         curses.echo()
         curses.endwin()
+        # reset mouse
+        print("\x1b[?1000l\x1b[?1006l")
         self.log("terminal: terminated")
 
     def update_border(self):
@@ -985,3 +991,32 @@ class ClashTerminal:
         self.title = title
         self.update_border()
         self.refresh()
+
+    async def handle_stdin(self, data):
+        while data and b"\x1b" in data:
+            m = re.search(br"([^\x1b]*)\x1b\[\<(\d+);(\d+);(\d+)([Mm])(.*)", data)
+            if not m:
+                self.log(data)
+                break
+            g = m.groups()
+            if g[0]:
+                if self.shell_input:
+                    self.shell_input(g[0])
+            data = g[5]
+            self.handle_mouse(int(g[1]), int(g[2]), int(g[3]), g[4].decode())
+
+        if data and self.shell_input:
+            self.shell_input(data)
+
+    def handle_mouse(self, button, col, row, event):
+        self.log(f"mse: {button} {col}x{row} {event}")
+        if button == 0:  # left
+            pass
+        elif button == 1:  # middle
+            pass
+        elif button == 2:  # right
+            pass
+        elif button == 64:  # scroll up
+            self.shell_input(b"\x1bOA\x1bOA\x1bOA")
+        elif button == 65:  # scroll down
+            self.shell_input(b"\x1bOB\x1bOB\x1bOB")

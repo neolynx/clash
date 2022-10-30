@@ -52,7 +52,10 @@ class ClashStdin:
                 if not data:
                     self.up = False
                     break
-                await stdin_handler(data)
+                try:
+                    await stdin_handler(data)
+                except Exception as exc:
+                    self.log(exc)
 
             self.log(f"stdin: handler done")
 
